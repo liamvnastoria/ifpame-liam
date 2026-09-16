@@ -3,55 +3,70 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Atelier Déco — Fiche produit</title>
+  <title>Octet — Fiche produit</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body class="min-h-screen bg-slate-50 text-slate-800">
 
-  <header class="site-header">
-    <div class="container site-header__inner">
-      <a class="brand" href="index.html">Atelier<span>Déco</span></a>
-      <nav class="site-nav">
-        <a href="index.html">Accueil</a>
-        <a href="products.html">Catalogue</a>
-        <a href="cart.html">Panier <span class="cart-count" data-cart-count hidden>0</span></a>
-      </nav>
+  <header class="sticky top-0 z-10 border-b border-slate-200 bg-white">
+    <div class="mx-auto w-full max-w-5xl px-4">
+      <div class="flex h-16 items-center gap-3 sm:gap-4">
+        <a class="shrink-0 text-lg font-bold text-slate-900" href="index.html">Octet<span class="text-brand">.</span></a>
+
+        <form class="min-w-0 flex-1" action="products.html" method="get" role="search">
+          <input class="input" type="search" name="search" id="header-search" placeholder="Rechercher un produit…" aria-label="Rechercher un produit">
+        </form>
+
+        <!-- Rempli par initAuth() : « Connexion » ou le prénom du visiteur. -->
+        <nav class="flex shrink-0 items-center gap-3 text-sm" data-account></nav>
+
+        <a class="flex shrink-0 items-center gap-1.5 text-sm text-slate-600 hover:text-brand" href="cart.html">
+          <span class="hidden sm:inline">Panier</span>
+          <span class="text-base sm:hidden" aria-hidden="true">🛒</span>
+          <span class="inline-block min-w-5 rounded-full bg-brand px-1.5 text-center text-xs text-white" data-cart-count hidden>0</span>
+        </a>
+      </div>
+
+      <nav class="flex gap-5 overflow-x-auto pb-2 text-sm" data-departments></nav>
     </div>
   </header>
 
-  <main class="container">
-    <p><a href="products.html">← Retour au catalogue</a></p>
+  <main class="mx-auto w-full max-w-5xl px-4 py-8">
+    <p class="mb-5 text-sm"><a class="text-brand hover:underline" href="products.html">← Retour au catalogue</a></p>
 
     <div class="alert" id="message" hidden></div>
 
-    <p class="state" id="loading">Chargement du produit…</p>
+    <p class="py-5 text-slate-500" id="loading">Chargement du produit…</p>
 
     <!-- Contenu rempli par js/product.js. La structure est déjà là : le
-         JavaScript ne fait que la remplir et la démasquer. -->
-    <article class="product-detail" id="product-detail" hidden>
-      <div id="product-image"></div>
+         JavaScript ne fait que la remplir et la démasquer.
+         Une seule colonne sur mobile, deux à partir de 1024 px. -->
+    <article class="grid gap-8 lg:grid-cols-2" id="product-detail" hidden>
+      <div class="overflow-hidden rounded-xl" id="product-image"></div>
 
       <div>
-        <p class="product-card__category" id="product-category"></p>
-        <h1 id="product-name"></h1>
-        <p class="product-detail__price" id="product-price"></p>
+        <p class="product-card-category" id="product-category"></p>
+        <h1 class="mb-0 text-2xl font-bold text-slate-900" id="product-name"></h1>
+        <p class="mt-4 mb-2 text-2xl font-bold" id="product-price"></p>
         <p id="product-stock"></p>
-        <p class="product-detail__description" id="product-description"></p>
+        <!-- whitespace-pre-line conserve les retours à la ligne du texte
+             enregistré en base. -->
+        <p class="whitespace-pre-line text-slate-500" id="product-description"></p>
 
-        <div class="buy-box">
+        <div class="mt-5 flex flex-wrap items-end gap-3">
           <div>
-            <label for="quantity">Quantité</label>
-            <input type="number" id="quantity" value="1" min="1" step="1">
+            <label class="mb-1 block text-sm text-slate-500" for="quantity">Quantité</label>
+            <input class="input w-24" type="number" id="quantity" value="1" min="1" step="1">
           </div>
-          <button class="btn btn--primary" type="button" id="add-to-cart">Ajouter au panier</button>
-          <a class="btn btn--ghost" href="cart.html">Voir le panier</a>
+          <button class="btn btn-primary" type="button" id="add-to-cart">Ajouter au panier</button>
+          <a class="btn btn-ghost" href="cart.html">Voir le panier</a>
         </div>
       </div>
     </article>
   </main>
 
-  <footer class="site-footer">
-    <div class="container">
+  <footer class="mt-12 border-t border-slate-200 py-6 text-sm text-slate-500">
+    <div class="mx-auto w-full max-w-5xl px-4">
       <p>Projet pédagogique — boutique fictive, aucun paiement réel.</p>
     </div>
   </footer>
@@ -59,6 +74,7 @@
   <script src="js/cart-storage.js"></script>
   <script src="js/api.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/auth.js"></script>
   <script src="js/product.js"></script>
 </body>
 </html>

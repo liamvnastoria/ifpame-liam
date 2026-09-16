@@ -3,24 +3,30 @@
  *
  * C'est ici que le frontend et le backend se rencontrent :
  *
- *   panier (localStorage) → validation → POST api/orders.php
- *   → PHP recalcule les prix → {"success": true, "data": {order_id, total}}
+ *   panier (localStorage) + compte connecté → validation → POST api/orders.php
+ *   → PHP relit les prix en base → {"success": true, "data": {order_id, total}}
  *   → confirmation.html
  *
- * Dépend de : cart-storage.js, api.js, ui.js.
+ * Depuis l'ajout des comptes, cette page attend la réponse de api/me.php
+ * avant d'afficher quoi que ce soit : sans compte, il n'y a pas de commande à
+ * préparer.
+ *
+ * Dépend de : cart-storage.js, api.js, ui.js, auth.js.
  */
 
 const message = document.getElementById("message");
 const emptyState = document.getElementById("checkout-empty");
+const loginState = document.getElementById("checkout-login");
 const content = document.getElementById("checkout-content");
 const form = document.getElementById("checkout-form");
+const customerLabel = document.getElementById("checkout-customer");
 const summaryItems = document.getElementById("summary-items");
 const summaryTotal = document.getElementById("summary-total");
 const submitButton = document.getElementById("submit-order");
 
 /** Affiche le récapitulatif de ce qui va être envoyé. */
 function renderSummary() {
-  const items = getCart().map((line) => {
+  const rows = getCart().map((line) => {
     const row = document.createElement("li");
 
     const label = document.createElement("span");
@@ -33,47 +39,22 @@ function renderSummary() {
     return row;
   });
 
-  summaryItems.replaceChildren(...items);
+  summaryItems.replaceChildren(...rows);
   summaryTotal.textContent = formatPrice(getCartTotal());
 }
 
 /**
- * Vérifie les coordonnées saisies.
- *
- * Cette validation existe pour répondre VITE au visiteur, dans sa langue et au
- * bon endroit. Elle ne protège rien : n'importe qui peut la contourner avec les
- * outils du navigateur ou en appelant l'API directement. PHP revalide donc
- * exactement les mêmes règles.
- *
- * @returns {string|null} Le premier problème trouvé, ou null si tout est bon.
+ * Vérifie l'adresse de livraison.
+ * Mêmes règles que dans api/orders.php : ce contrôle répond vite et en
+ * français, l'autre est celui qui protège la base de données.
  */
-function validateCustomer(customer) {
-  // Les limites de longueur reprennent celles du schéma SQL (VARCHAR).
-  // Une valeur plus longue serait tronquée ou refusée par MySQL.
-  if (customer.name.length < 2) {
-    return "Le nom doit contenir au moins 2 caractères.";
-  }
-  if (customer.name.length > 100) {
-    return "Le nom ne peut pas dépasser 100 caractères.";
-  }
-
-  // Contrôle volontairement simple : quelque chose, un @, quelque chose,
-  // un point, quelque chose. Une adresse e-mail réellement valide ne peut de
-  // toute façon être confirmée qu'en y envoyant un message.
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email)) {
-    return "L'adresse e-mail n'est pas valide.";
-  }
-  if (customer.email.length > 150) {
-    return "L'adresse e-mail ne peut pas dépasser 150 caractères.";
-  }
-
-  if (customer.address.length < 5) {
+function validateAddress(address) {
+  if (address.length < 5) {
     return "L'adresse de livraison doit contenir au moins 5 caractères.";
   }
-  if (customer.address.length > 255) {
+  if (address.length > 255) {
     return "L'adresse ne peut pas dépasser 255 caractères.";
   }
-
   return null;
 }
 
@@ -87,23 +68,19 @@ async function submitOrder(event) {
   // Le formulaire s'appelle "checkout-form" : attention, form.name renverrait
   // l'attribut name du <form> lui-même et non le champ. On passe donc par
   // form.elements pour récupérer les champs par leur nom.
-  const customer = {
-    name: form.elements.name.value.trim(),
-    email: form.elements.email.value.trim(),
-    address: form.elements.address.value.trim(),
-  };
+  const address = form.elements.address.value.trim();
 
-  const problem = validateCustomer(customer);
+  const problem = validateAddress(address);
   if (problem !== null) {
     showMessage(message, problem, "error");
     return;
   }
 
   const payload = {
-    customer: customer,
-    // Seuls l'identifiant et la quantité sont transmis. Les prix stockés dans
-    // localStorage sont volontairement absents : le navigateur propose, le
-    // serveur décide. PHP relira les prix et le stock en base.
+    address: address,
+    // Seuls l'identifiant et la quantité sont transmis. Ni le prix, ni le
+    // nom du client : les deux sont relus en base par PHP (le prix depuis
+    // products, le client depuis la session).
     items: getCart().map((line) => ({
       product_id: line.id,
       quantity: line.quantity,
@@ -123,7 +100,8 @@ async function submitOrder(event) {
   try {
     const data = await fetchJson("api/orders.php", {
       method: "POST",
-      // Sans cet en-tête, PHP ne sait pas que le corps contient du JSON.
+      // Sans cet en-tête, PHP ne saurait pas que le corps contient du JSON :
+      // c'est ce qui fait que $_POST reste vide et qu'on lit php://input.
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
@@ -134,23 +112,40 @@ async function submitOrder(event) {
     sessionStorage.setItem("lastOrder", JSON.stringify(data));
     window.location.href = "confirmation.html";
   } catch (error) {
-    // Cas typiques : stock insuffisant (409), coordonnées refusées (400), ou
-    // base de données indisponible (500). Dans tous les cas le panier est
-    // intact, le visiteur peut corriger et réessayer.
+    // Cas rencontrés ici : session expirée (401), stock insuffisant (409),
+    // adresse refusée (400), base indisponible (500). Dans tous les cas le
+    // panier est intact, le visiteur peut corriger et réessayer.
     showMessage(message, error.message, "error");
     submitButton.disabled = false;
     submitButton.textContent = "Valider la commande";
   }
 }
 
-// Démarrage : un panier vide est possible si l'adresse de la page est saisie
-// à la main. On masque alors le formulaire au lieu de laisser commander du vide.
-refreshCartBadge();
+async function init() {
+  refreshCartBadge();
+  initHeaderNav();
 
-if (getCart().length === 0) {
-  emptyState.hidden = false;
-} else {
+  // On attend de savoir qui est connecté AVANT d'afficher : sinon un visiteur
+  // non connecté verrait apparaître un formulaire... puis disparaître.
+  const user = await initAuth();
+
+  if (getCart().length === 0) {
+    emptyState.hidden = false;
+    return;
+  }
+
+  if (user === null) {
+    loginState.hidden = false;
+    return;
+  }
+
+  // Le nom affiché vient de la session (via api/me.php) et non d'un champ de
+  // formulaire : personne ne peut commander au nom d'un autre en modifiant la
+  // page, puisque ce texte n'est jamais envoyé au serveur.
+  customerLabel.textContent = user.name;
   renderSummary();
   content.hidden = false;
   form.addEventListener("submit", submitOrder);
 }
+
+init();

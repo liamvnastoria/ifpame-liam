@@ -36,14 +36,33 @@ function readProductId() {
   return id;
 }
 
+/**
+ * Affiche le prix, et le prix barré si le produit est en promotion.
+ * Le montant lu par le panier est celui de getEffectivePrice() : les deux
+ * affichages parlent donc forcément du même prix.
+ */
+function renderPrice(product) {
+  priceEl.replaceChildren();
+
+  if (product.discount_price === null) {
+    priceEl.textContent = formatPrice(product.price);
+    return;
+  }
+
+  priceEl.append(
+    el("span", "mr-3 text-base font-normal text-slate-400 line-through", formatPrice(product.price)),
+    el("span", "text-red-600", formatPrice(product.discount_price))
+  );
+}
+
 /** Affiche le produit reçu de l'API dans la page. */
 function renderProduct(product) {
   categoryEl.textContent = product.category_name;
   nameEl.textContent = product.name;
-  priceEl.textContent = formatPrice(product.price);
-  // Les sauts de ligne du texte SQL sont conservés à l'affichage.
+  renderPrice(product);
+  // Les sauts de ligne du texte SQL sont conservés grâce à la classe
+  // Tailwind "whitespace-pre-line" posée sur l'élément dans product.html.
   descriptionEl.textContent = product.description || "Pas de description pour ce produit.";
-  descriptionEl.style.whiteSpace = "pre-line";
 
   imageBox.replaceChildren(createThumbnail(product));
   stockEl.replaceChildren(createStockBadge(product));
@@ -89,6 +108,10 @@ function handleAddToCart() {
 /** Charge le produit demandé au démarrage de la page. */
 async function init() {
   refreshCartBadge();
+  // La barre des départements et la zone de compte sont communes à toutes
+  // les pages : elles se chargent ici, en parallèle de la fiche produit.
+  initHeaderNav();
+  initAuth();
 
   const id = readProductId();
   if (id === null) {

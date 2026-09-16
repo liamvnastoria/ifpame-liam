@@ -70,19 +70,25 @@ function addToCart(product, quantity) {
     return 0;
   }
 
+  // Le prix retenu est celui que le visiteur a vu sur la page : le prix de
+  // promotion s'il existe, le prix catalogue sinon. L'API envoie les deux
+  // champs, c'est donc ici qu'on choisit lequel sert à l'affichage. (Le
+  // montant réellement facturé, lui, sera relu en base par PHP.)
+  const unitPrice = product.discount_price ? Number(product.discount_price) : Number(product.price);
+
   if (line) {
     line.quantity = finalQuantity;
     // Le nom, le prix et le stock sont rafraîchis : le panier reste cohérent
     // si le produit a changé depuis le dernier ajout.
     line.name = product.name;
-    line.price = Number(product.price);
+    line.price = unitPrice;
     line.image_url = product.image_url;
     line.stock = stock;
   } else {
     cart.push({
       id: product.id,
       name: product.name,
-      price: Number(product.price),
+      price: unitPrice,
       image_url: product.image_url,
       stock: stock,
       quantity: finalQuantity,

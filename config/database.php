@@ -13,8 +13,12 @@
 // setups. 127.0.0.1 forces a plain TCP connection.
 const DB_HOST    = '127.0.0.1';
 const DB_NAME    = 'shop';
-const DB_USER    = 'root';
-const DB_PASS    = '';
+// The application does NOT connect as root. This account is created at the end
+// of database/schema.sql: it may only read the catalogue, insert an order and
+// update a stock, which is everything the API does. That file also explains
+// why root would not work here on Debian or Ubuntu.
+const DB_USER    = 'shop';
+const DB_PASS    = 'shop_local';
 const DB_CHARSET = 'utf8mb4';
 
 /**

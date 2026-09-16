@@ -1,20 +1,18 @@
 {
-  "name": "ifpame-liam",
+  "name": "octet-shop",
   "version": "1.0.0",
-  "description": "IFAPME Dev Project Support School",
-  "main": "index.js",
+  "private": true,
+  "description": "Boutique informatique fictive - projet pedagogique PHP / MySQL / JavaScript",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "npm run check && concurrently -n css,php -c blue,green --kill-others-on-fail \"tailwindcss -i ./src/input.css -o ./css/style.css --watch\" \"php -S 127.0.0.1:8000\"",
+    "check": "php tools/check-env.php",
+    "css": "tailwindcss -i ./src/input.css -o ./css/style.css",
+    "css:watch": "tailwindcss -i ./src/input.css -o ./css/style.css --watch",
+    "serve": "php -S 127.0.0.1:8000"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/liamvnastoria/ifpame-liam.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/liamvnastoria/ifpame-liam/issues"
-  },
-  "homepage": "https://github.com/liamvnastoria/ifpame-liam#readme"
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "concurrently": "^10.0.5",
+    "tailwindcss": "^4.3.3"
+  }
 }

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Octet — Créer un compte</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800">
+
+  <header class="sticky top-0 z-10 border-b border-slate-200 bg-white">
+    <div class="mx-auto w-full max-w-5xl px-4">
+      <div class="flex h-16 items-center gap-3 sm:gap-4">
+        <a class="shrink-0 text-lg font-bold text-slate-900" href="index.html">Octet<span class="text-brand">.</span></a>
+
+        <form class="min-w-0 flex-1" action="products.html" method="get" role="search">
+          <input class="input" type="search" name="search" id="header-search" placeholder="Rechercher un produit…" aria-label="Rechercher un produit">
+        </form>
+
+        <nav class="flex shrink-0 items-center gap-3 text-sm" data-account></nav>
+
+        <a class="flex shrink-0 items-center gap-1.5 text-sm text-slate-600 hover:text-brand" href="cart.html">
+          <span class="hidden sm:inline">Panier</span>
+          <span class="text-base sm:hidden" aria-hidden="true">🛒</span>
+          <span class="inline-block min-w-5 rounded-full bg-brand px-1.5 text-center text-xs text-white" data-cart-count hidden>0</span>
+        </a>
+      </div>
+
+      <nav class="flex gap-5 overflow-x-auto pb-2 text-sm" data-departments></nav>
+    </div>
+  </header>
+
+  <main class="mx-auto w-full max-w-5xl px-4 py-12">
+    <section class="mx-auto max-w-md">
+      <h1 class="mb-5 text-2xl font-bold text-slate-900">Créer un compte</h1>
+
+      <div class="alert" id="message" hidden></div>
+
+      <form class="panel" id="register-form" novalidate>
+        <div class="field">
+          <label for="name">Nom complet</label>
+          <input class="input" type="text" id="name" name="name" maxlength="100" required autocomplete="name">
+          <small>100 caractères maximum (comme la colonne users.name).</small>
+        </div>
+
+        <div class="field">
+          <label for="email">Adresse e-mail</label>
+          <input class="input" type="email" id="email" name="email" maxlength="150" required autocomplete="email">
+          <small>Elle servira d'identifiant de connexion, et doit être unique.</small>
+        </div>
+
+        <div class="field">
+          <label for="password">Mot de passe</label>
+          <input class="input" type="password" id="password" name="password" minlength="8" maxlength="72" required autocomplete="new-password">
+          <small>Entre 8 et 72 caractères. Il n'est jamais enregistré tel quel : seul un hachage est conservé.</small>
+        </div>
+
+        <div class="field">
+          <label for="confirmation">Confirmer le mot de passe</label>
+          <input class="input" type="password" id="confirmation" name="confirmation" minlength="8" maxlength="72" required autocomplete="new-password">
+          <small>Ce champ n'existe que dans le navigateur : il ne part jamais vers l'API.</small>
+        </div>
+
+        <button class="btn btn-primary" type="submit" id="submit-register">Créer mon compte</button>
+      </form>
+
+      <p class="mt-4 text-sm text-slate-500">
+        Déjà un compte ?
+        <a class="text-brand hover:underline" href="login.html">Se connecter</a>
+      </p>
+    </section>
+  </main>
+
+  <footer class="mt-12 border-t border-slate-200 py-6 text-sm text-slate-500">
+    <div class="mx-auto w-full max-w-5xl px-4">
+      <p>Projet pédagogique — boutique fictive, aucun paiement réel.</p>
+    </div>
+  </footer>
+
+  <script src="js/cart-storage.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    initAuth();
+    initRegisterForm();
+  </script>
+</body>
+</html>

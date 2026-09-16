@@ -67,7 +67,9 @@ function createLine(line) {
   const quantityCell = document.createElement("td");
   const quantityInput = document.createElement("input");
   quantityInput.type = "number";
-  quantityInput.className = "qty-input";
+  // Deux classes : "input" (l'apparence du champ, definie dans input.css) et
+  // "w-20" (la largeur, une classe utilitaire Tailwind).
+  quantityInput.className = "input w-20";
   quantityInput.min = "1";
   // La limite haute vient du stock mémorisé lors de l'ajout au panier. Elle
   // guide la saisie, elle ne la garantit pas : le stock peut avoir changé.
@@ -92,7 +94,7 @@ function createLine(line) {
   const actionCell = document.createElement("td");
   const removeButton = document.createElement("button");
   removeButton.type = "button";
-  removeButton.className = "btn btn--link";
+  removeButton.className = "btn btn-link";
   removeButton.textContent = "Supprimer";
   removeButton.addEventListener("click", () => {
     removeFromCart(line.id);
@@ -114,6 +116,9 @@ clearButton.addEventListener("click", () => {
   }
 });
 
-// Démarrage : le badge de l'en-tête puis le contenu du panier.
+// Démarrage : badge du panier, en-tête (départements + compte), puis contenu
+// du panier.
 refreshCartBadge();
+initHeaderNav();
+initAuth();
 render();

@@ -45,3 +45,5 @@ if (raw === null) {
 }
 
 refreshCartBadge();
+initHeaderNav();
+initAuth();

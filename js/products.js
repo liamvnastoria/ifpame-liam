@@ -2,8 +2,12 @@
  * Page catalogue — products.html
  *
  * Flux : la page se charge → on lit les filtres de l'URL → on appelle
- * api/products.php → on construit une carte par produit dans la grille.
- * Aucune donnée n'est écrite ici : cette page ne fait que lire l'API.
+ * api/products.php → la grille est remplie de cartes produit.
+ *
+ * Les quatre filtres (catégorie, recherche, tri, promotions) sont TOUS dans
+ * l'URL. C'est ce qui permet aux liens « Tout voir → » de la homepage
+ * d'arriver avec le bon filtre déjà appliqué, et à un lien envoyé à quelqu'un
+ * d'afficher la même liste.
  *
  * Dépend de : cart-storage.js, api.js, ui.js (chargés avant ce fichier).
  */
@@ -12,40 +16,54 @@ const grid = document.getElementById("product-grid");
 const message = document.getElementById("message");
 const loading = document.getElementById("loading");
 const emptyState = document.getElementById("empty");
-const searchForm = document.getElementById("search-form");
-const searchInput = document.getElementById("search");
+const searchInput = document.getElementById("header-search");
 const categorySelect = document.getElementById("category");
+const sortSelect = document.getElementById("sort");
+const promoCheckbox = document.getElementById("promo");
 
-// Les filtres sont lus dans l'URL : ainsi un rechargement de page, ou un lien
-// envoyé à quelqu'un, retrouve exactement la même liste de produits.
 const urlParams = new URLSearchParams(window.location.search);
 const filters = {
   category: urlParams.get("category") || "",
   search: urlParams.get("search") || "",
+  sort: urlParams.get("sort") || "",
+  promo: urlParams.get("promo") || "",
 };
 
+// Le champ de recherche est celui de l'en-tête, commun aux six pages : on y
+// réaffiche la recherche en cours, sinon le visiteur ne comprendrait pas
+// pourquoi la liste est incomplète.
 searchInput.value = filters.search;
+// "name" est le tri par défaut de l'API : le select doit le montrer même si
+// l'URL ne contient rien.
+sortSelect.value = filters.sort === "" ? "name" : filters.sort;
+promoCheckbox.checked = filters.promo === "1";
 
 /**
  * Construit la chaîne de requête à partir des filtres actifs.
- * Exemple : "category=2&search=lampe", ou "" si aucun filtre.
+ * Exemple : "category=2&search=clavier&sort=price", ou "" si aucun filtre.
  */
 function currentQuery() {
   const params = new URLSearchParams();
+
   if (filters.category !== "") {
     params.set("category", filters.category);
   }
   if (filters.search !== "") {
     params.set("search", filters.search);
   }
+  // Inutile d'écrire le tri par défaut dans l'URL : une adresse plus courte
+  // reste lisible, et l'API applique "name" si le paramètre est absent.
+  if (filters.sort !== "" && filters.sort !== "name") {
+    params.set("sort", filters.sort);
+  }
+  if (filters.promo === "1") {
+    params.set("promo", "1");
+  }
+
   return params.toString();
 }
 
-/**
- * Recharge la liste avec les filtres actuels.
- * async/await permet d'écrire le code comme s'il était synchrone : "await"
- * attend la réponse du serveur avant de passer à la ligne suivante.
- */
+/** Recharge la liste avec les filtres actuels. */
 async function loadProducts() {
   loading.hidden = false;
   emptyState.hidden = true;
@@ -67,29 +85,42 @@ async function loadProducts() {
       return;
     }
 
-    // createProductCard est appelée pour chaque produit, puis les cartes sont
-    // insérées d'un coup dans la grille.
+    // createProductCard est fournie par ui.js : le catalogue et les rangées de
+    // la homepage affichent donc exactement la même carte.
     grid.replaceChildren(...products.map(createProductCard));
   } catch (error) {
     loading.hidden = true;
-    // error.message vient de fetchJson : soit le message "error" renvoyé par
-    // PHP, soit un message de notre côté (réponse illisible, serveur arrêté).
     showMessage(message, error.message, "error");
   }
 }
 
-/** Charge les catégories et remplit le menu déroulant. */
+/** Charge les catégories et remplit le menu déroulant, groupé par département. */
 async function loadCategories() {
   try {
     const categories = await fetchJson("api/categories.php");
 
-    for (const category of categories) {
-      const option = document.createElement("option");
-      option.value = String(category.id);
-      // Le nombre de produits est affiché dans l'option : l'information est
-      // calculée par SQL (COUNT + GROUP BY), pas par JavaScript.
-      option.textContent = category.name + " (" + category.product_count + ")";
-      categorySelect.append(option);
+    // <optgroup> est l'élément HTML prévu pour les menus à deux niveaux : le
+    // navigateur met lui-même les sous-catégories en retrait, sans une ligne
+    // de CSS. C'est exactement la structure renvoyée par l'API.
+    for (const department of categories) {
+      const group = document.createElement("optgroup");
+      group.label = department.name;
+
+      // Le département reste sélectionnable : il permet de voir tout ce qu'il
+      // contient, sous-catégories comprises (l'API gère ce cas avec un OR).
+      const departmentOption = document.createElement("option");
+      departmentOption.value = String(department.id);
+      departmentOption.textContent = "Tout : " + department.name + " (" + department.product_count + ")";
+      group.append(departmentOption);
+
+      for (const child of department.children) {
+        const option = document.createElement("option");
+        option.value = String(child.id);
+        option.textContent = child.name + " (" + child.product_count + ")";
+        group.append(option);
+      }
+
+      categorySelect.append(group);
     }
   } catch (error) {
     showMessage(message, "Impossible de charger les catégories : " + error.message, "error");
@@ -105,68 +136,38 @@ async function loadCategories() {
   categorySelect.value = filters.category;
 }
 
-/** Construit la carte d'un produit dans la grille. */
-function createProductCard(product) {
-  const card = document.createElement("article");
-  card.className = "product-card";
-
-  const mediaLink = document.createElement("a");
-  mediaLink.className = "product-card__media";
-  mediaLink.href = "product.html?id=" + product.id;
-  mediaLink.append(createThumbnail(product));
-
-  const body = document.createElement("div");
-  body.className = "product-card__body";
-
-  const category = document.createElement("p");
-  category.className = "product-card__category";
-  category.textContent = product.category_name;
-
-  const title = document.createElement("h2");
-  title.className = "product-card__name";
-  const titleLink = document.createElement("a");
-  titleLink.href = "product.html?id=" + product.id;
-  titleLink.textContent = product.name;
-  title.append(titleLink);
-
-  const price = document.createElement("p");
-  price.className = "product-card__price";
-  price.textContent = formatPrice(product.price);
-
-  body.append(category, title, price, createStockBadge(product));
-  card.append(mediaLink, body);
-
-  return card;
-}
-
-/** Synchronise le contenu de la page avec les filtres actifs. */
+/** Synchronise le contenu de la page et l'URL avec les filtres actifs. */
 function applyFilters() {
   // replaceState réécrit l'URL sans ajouter une entrée dans l'historique :
-  // le bouton « Retour » du navigateur ne se remplit pas à chaque recherche.
+  // le bouton « Retour » ne se remplit pas à chaque changement de filtre.
   const query = currentQuery();
   history.replaceState(null, "", query === "" ? "products.html" : "products.html?" + query);
 
   loadProducts();
 }
 
-// La touche Entrée ou le bouton « Rechercher » déclenchent submit. Sans
-// preventDefault, le navigateur rechargerait la page et perdrait l'état.
-searchForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  filters.search = searchInput.value.trim();
-  filters.category = categorySelect.value;
-  applyFilters();
-});
-
-// Le changement de catégorie est immédiat : pas besoin de valider un formulaire.
+// Chaque filtre est immédiat : pas de bouton « Appliquer » à chercher.
+// La recherche, elle, se valide avec la touche Entrée puisqu'elle est
+// soumise par le formulaire de l'en-tête (voir le HTML).
 categorySelect.addEventListener("change", () => {
   filters.category = categorySelect.value;
   applyFilters();
 });
 
-// Démarrage de la page : le badge du panier d'abord, puis les catégories, puis
-// les produits. loadCategories est attendu pour que le select soit rempli avant
-// que le filtre de l'URL y soit appliqué. Les deux appels sont volontairement
-// enchaînés et non lancés en parallèle pour garder un ordre facile à suivre.
+sortSelect.addEventListener("change", () => {
+  filters.sort = sortSelect.value;
+  applyFilters();
+});
+
+promoCheckbox.addEventListener("change", () => {
+  filters.promo = promoCheckbox.checked ? "1" : "";
+  applyFilters();
+});
+
+// Démarrage de la page : badge du panier, barre des départements, puis
+// catégories et produits. loadCategories est attendu avant loadProducts pour
+// que le select soit rempli avant qu'on y applique le filtre de l'URL.
 refreshCartBadge();
+initHeaderNav();
+initAuth();
 loadCategories().then(loadProducts);

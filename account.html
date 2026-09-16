@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Octet — Panier</title>
+  <title>Octet — Mon compte</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-800">
@@ -17,7 +17,6 @@
           <input class="input" type="search" name="search" id="header-search" placeholder="Rechercher un produit…" aria-label="Rechercher un produit">
         </form>
 
-        <!-- Rempli par initAuth() : « Connexion » ou le prénom du visiteur. -->
         <nav class="flex shrink-0 items-center gap-3 text-sm" data-account></nav>
 
         <a class="flex shrink-0 items-center gap-1.5 text-sm text-slate-600 hover:text-brand" href="cart.html">
@@ -32,45 +31,22 @@
   </header>
 
   <main class="mx-auto w-full max-w-5xl px-4 py-8">
-    <div class="mb-5 flex flex-wrap items-baseline justify-between gap-4">
-      <h1 class="text-2xl font-bold text-slate-900">Mon panier</h1>
-      <!-- Bouton discret pour vider le panier d'un coup. -->
-      <button class="btn btn-link" type="button" id="clear-cart" hidden>Vider le panier</button>
-    </div>
+    <div class="alert" id="message" hidden></div>
 
-    <!-- Message affiché si le panier est vide : le tableau et le total
-         restent alors masqués. -->
-    <p class="py-5 text-slate-500" id="cart-empty">
-      Votre panier est vide. <a class="text-brand hover:underline" href="products.html">Parcourir le catalogue</a>.
-    </p>
-
-    <div class="table-wrap" id="cart-table-wrapper" hidden>
-      <table class="table">
-        <thead>
-          <tr>
-            <th scope="col">Produit</th>
-            <th scope="col">Prix unitaire</th>
-            <th scope="col">Quantité</th>
-            <th scope="col">Sous-total</th>
-            <th scope="col">Action</th>
-          </tr>
-        </thead>
-        <!-- Les lignes sont créées par js/cart.js à partir de localStorage. -->
-        <tbody id="cart-items"></tbody>
-      </table>
-    </div>
-
-    <div class="flex flex-wrap items-center justify-between gap-4" id="cart-summary" hidden>
-      <p class="total-line">Total : <span id="cart-total"></span></p>
-      <p class="note w-full">
-        Montant indicatif calculé dans votre navigateur. Le montant définitif
-        est recalculé par le serveur à partir des prix en base de données au
-        moment de la commande.
+    <!-- Masqué par défaut : le contenu n'apparaît qu'une fois l'utilisateur
+         connu, sinon la page afficherait un instant un nom vide. -->
+    <div id="account-page" hidden>
+      <h1 class="text-2xl font-bold text-slate-900">Mon compte</h1>
+      <p class="mt-2 text-slate-600">
+        <strong id="account-name"></strong>
+        <span class="text-slate-400">·</span>
+        <span id="account-email"></span>
       </p>
-      <div class="flex flex-wrap gap-3">
-        <a class="btn btn-primary" href="checkout.html">Passer la commande</a>
-        <a class="btn btn-ghost" href="products.html">Continuer mes achats</a>
-      </div>
+      <button class="btn btn-ghost mt-4" type="button" id="account-logout">Se déconnecter</button>
+
+      <h2 class="mt-10 text-xl font-bold text-slate-900">Mes commandes</h2>
+      <!-- Rempli par initAccountPage() avec le résultat de GET api/orders.php -->
+      <ul class="mt-4 space-y-4" id="order-history"></ul>
     </div>
   </main>
 
@@ -84,6 +60,9 @@
   <script src="js/api.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/cart.js"></script>
+  <script>
+    initAuth();
+    initAccountPage();
+  </script>
 </body>
 </html>

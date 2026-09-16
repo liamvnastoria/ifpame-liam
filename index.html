@@ -3,64 +3,148 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Atelier Déco — Accueil</title>
+  <title>Octet — Boutique informatique</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body class="min-h-screen bg-slate-50 text-slate-800">
 
-  <!-- En-tête identique sur toutes les pages.
-       Le bloc [data-cart-count] est rempli par refreshCartBadge() (js/cart-storage.js). -->
-  <header class="site-header">
-    <div class="container site-header__inner">
-      <a class="brand" href="index.html">Atelier<span>Déco</span></a>
-      <nav class="site-nav">
-        <a href="index.html">Accueil</a>
-        <a href="products.html">Catalogue</a>
-        <a href="cart.html">Panier <span class="cart-count" data-cart-count hidden>0</span></a>
-      </nav>
+  <!-- En-tête commun aux six pages : logo, recherche, panier, et la barre des
+       départements remplie par JavaScript à partir de la base de données. -->
+  <header class="sticky top-0 z-10 border-b border-slate-200 bg-white">
+    <div class="mx-auto w-full max-w-5xl px-4">
+      <div class="flex h-16 items-center gap-3 sm:gap-4">
+        <a class="shrink-0 text-lg font-bold text-slate-900" href="index.html">Octet<span class="text-brand">.</span></a>
+
+        <!-- La recherche est un vrai formulaire GET : le navigateur construit
+             lui-même l'adresse products.html?search=… , aucun JavaScript n'est
+             nécessaire pour la faire fonctionner. -->
+        <form class="min-w-0 flex-1" action="products.html" method="get" role="search">
+          <input class="input" type="search" name="search" id="header-search" placeholder="Rechercher un produit…" aria-label="Rechercher un produit">
+        </form>
+
+        <!-- Rempli par initAuth() : « Connexion » ou le prénom du visiteur. -->
+        <nav class="flex shrink-0 items-center gap-3 text-sm" data-account></nav>
+
+        <a class="flex shrink-0 items-center gap-1.5 text-sm text-slate-600 hover:text-brand" href="cart.html">
+          <span class="hidden sm:inline">Panier</span>
+          <span class="text-base sm:hidden" aria-hidden="true">🛒</span>
+          <span class="inline-block min-w-5 rounded-full bg-brand px-1.5 text-center text-xs text-white" data-cart-count hidden>0</span>
+        </a>
+      </div>
+
+      <nav class="flex gap-5 overflow-x-auto pb-2 text-sm" data-departments></nav>
     </div>
   </header>
 
-  <!-- Cette page est volontairement statique : aucun JavaScript, aucun appel à
-       l'API. Elle sert de point d'entrée et renvoie vers le catalogue. -->
-  <main class="container">
-    <section class="hero">
-      <h1>Meubles et objets pour la maison</h1>
-      <p>
-        Boutique fictive réalisée dans un cadre pédagogique : catalogue, fiche
-        produit, panier et passage de commande, sans aucune transaction réelle.
+  <main class="mx-auto w-full max-w-5xl px-4 py-6">
+    <div class="alert" id="message" hidden></div>
+
+    <!-- Bandeau promotionnel : statique, mais son bouton mène à un vrai filtre
+         du catalogue (?promo=1), donc il ne ment pas sur ce qu'on y trouve. -->
+    <section class="overflow-hidden rounded-xl bg-brand px-6 py-8 text-white sm:px-8">
+      <p class="text-xs font-semibold tracking-wide text-white/70 uppercase">Offre du moment</p>
+      <h1 class="mt-2 text-2xl font-bold sm:text-3xl">Jusqu'à 20 % sur une sélection d'écrans et de périphériques</h1>
+      <p class="mt-2 max-w-2xl text-sm text-white/80">
+        Catalogue fictif : les prix barrés servent à démontrer l'affichage d'une
+        promotion, aucun paiement n'est possible.
       </p>
-      <a class="btn btn--primary" href="products.html">Voir le catalogue</a>
+      <a class="btn mt-5 bg-white text-brand hover:bg-slate-100" href="products.html?promo=1">Voir les promotions</a>
     </section>
 
-    <section class="features">
-      <article class="feature">
-        <h2>Un catalogue filtrable</h2>
-        <p>Recherche par nom et filtre par catégorie, interrogés directement en base de données.</p>
-      </article>
-      <article class="feature">
-        <h2>Un panier local</h2>
-        <p>Vos articles sont conservés dans le navigateur, sans compte ni connexion.</p>
-      </article>
-      <article class="feature">
-        <h2>Un total calculé côté serveur</h2>
-        <p>PHP relit les prix en base au moment de commander : le prix envoyé par le navigateur n'est jamais utilisé.</p>
-      </article>
+    <!-- Tuiles des départements : remplies par js/home.js -->
+    <section class="mt-10">
+      <h2 class="mb-4 text-xl font-bold text-slate-900">Parcourir le catalogue</h2>
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" id="category-tiles"></div>
+    </section>
+
+    <!-- Quatre rangées de produits. Le conteneur [data-row] est une bande à
+         défilement horizontal : sur mobile on fait glisser, sur grand écran
+         les cartes tiennent dans la largeur. -->
+    <section class="mt-12" id="row-new">
+      <div class="mb-4 flex items-baseline justify-between gap-4">
+        <h2 class="text-xl font-bold text-slate-900">Nouveautés</h2>
+        <a class="shrink-0 text-sm text-brand hover:underline" href="products.html?sort=id">Tout voir →</a>
+      </div>
+      <div class="alert" data-message hidden></div>
+      <div class="product-row flex gap-4 overflow-x-auto pb-2" data-row></div>
+    </section>
+
+    <section class="mt-12" id="row-cheap">
+      <div class="mb-4 flex items-baseline justify-between gap-4">
+        <h2 class="text-xl font-bold text-slate-900">Petits prix</h2>
+        <a class="shrink-0 text-sm text-brand hover:underline" href="products.html?sort=price">Tout voir →</a>
+      </div>
+      <div class="alert" data-message hidden></div>
+      <div class="product-row flex gap-4 overflow-x-auto pb-2" data-row></div>
+    </section>
+
+    <section class="mt-12" id="row-promo">
+      <div class="mb-4 flex items-baseline justify-between gap-4">
+        <h2 class="text-xl font-bold text-slate-900">Promotions</h2>
+        <a class="shrink-0 text-sm text-brand hover:underline" href="products.html?promo=1">Tout voir →</a>
+      </div>
+      <div class="alert" data-message hidden></div>
+      <div class="product-row flex gap-4 overflow-x-auto pb-2" data-row></div>
+    </section>
+
+    <section class="mt-12" id="row-popular">
+      <div class="mb-4 flex items-baseline justify-between gap-4">
+        <h2 class="text-xl font-bold text-slate-900">Les plus commandés</h2>
+        <a class="shrink-0 text-sm text-brand hover:underline" href="products.html?sort=popular">Tout voir →</a>
+      </div>
+      <div class="alert" data-message hidden></div>
+      <div class="product-row flex gap-4 overflow-x-auto pb-2" data-row></div>
+    </section>
+
+    <!-- Repères de rassurance. Les symboles sont de simples caractères de
+         texte : aucune bibliothèque d'icônes n'est ajoutée au projet. -->
+    <section class="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="panel flex items-center gap-3">
+        <span class="text-2xl" aria-hidden="true">🚚</span>
+        <div>
+          <p class="font-semibold text-slate-900">Livraison offerte</p>
+          <p class="text-sm text-slate-500">Dès 50 € d'achat</p>
+        </div>
+      </div>
+      <div class="panel flex items-center gap-3">
+        <span class="text-2xl" aria-hidden="true">🛡️</span>
+        <div>
+          <p class="font-semibold text-slate-900">Garantie 2 ans</p>
+          <p class="text-sm text-slate-500">Sur tout le matériel</p>
+        </div>
+      </div>
+      <div class="panel flex items-center gap-3">
+        <span class="text-2xl" aria-hidden="true">↩️</span>
+        <div>
+          <p class="font-semibold text-slate-900">Retour gratuit</p>
+          <p class="text-sm text-slate-500">Sous 30 jours</p>
+        </div>
+      </div>
+      <div class="panel flex items-center gap-3">
+        <span class="text-2xl" aria-hidden="true">🎧</span>
+        <div>
+          <p class="font-semibold text-slate-900">Support 7j/7</p>
+          <p class="text-sm text-slate-500">Par téléphone et par e-mail</p>
+        </div>
+      </div>
     </section>
   </main>
 
-  <footer class="site-footer">
-    <div class="container">
-      <p>Projet pédagogique — boutique fictive, aucun paiement réel.</p>
+  <!-- Pied de page en colonnes : les quatre départements avec leurs
+       sous-catégories, puis la mention du projet. -->
+  <footer class="mt-16 border-t border-slate-200 bg-white py-10 text-sm">
+    <div class="mx-auto w-full max-w-5xl px-4">
+      <div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-4" id="footer-links"></div>
+      <p class="mt-10 border-t border-slate-200 pt-6 text-slate-500">
+        Projet pédagogique — boutique fictive, aucun paiement réel.
+      </p>
     </div>
   </footer>
 
-  <!-- cart-storage.js est nécessaire ici uniquement pour le badge du panier. -->
   <script src="js/cart-storage.js"></script>
-  <script>
-    // Scripts placés en fin de <body> : le DOM est déjà construit, il n'y a
-    // donc pas besoin d'attendre un événement DOMContentLoaded.
-    refreshCartBadge();
-  </script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/home.js"></script>
 </body>
 </html>

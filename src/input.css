@@ -1,0 +1,189 @@
+/* =========================================================
+   Point d'entrée Tailwind.
+
+   Ce fichier n'est PAS celui que le navigateur télécharge. Tailwind le lit et
+   produit css/style.css, qui contient uniquement les classes réellement
+   utilisées dans le projet.
+
+   Commande :  npm run css        (une fois)
+               npm run css:watch  (recompile à chaque sauvegarde)
+
+   Trois zones dans ce fichier :
+     1. l'import de Tailwind
+     2. @theme  : les couleurs de la marque, réutilisables partout
+     3. @layer components : les classes de composants et les fragments
+        qui sont construits par JavaScript
+   ========================================================= */
+
+@import "tailwindcss";
+
+/* ---------- 2. Thème ---------- */
+/* Une variable déclarée dans @theme génère automatiquement les classes
+   correspondantes : --color-brand donne bg-brand, text-brand, border-brand,
+   from-brand, etc. Changer la valeur ici change tout le site. */
+@theme {
+  --color-brand: #2563eb;
+  --color-brand-dark: #1d4ed8;
+}
+
+/* ---------- 3. Composants ---------- */
+/* Choix de départ assumé : le HTML statique utilise les classes utilitaires
+   directement (grid, flex, gap-5, md:grid-cols-3...), car c'est là que
+   Tailwind est le plus lisible. En revanche, les morceaux du DOM construits
+   par JavaScript utilisent les classes ci-dessous : sans elles, les mêmes
+   longues listes de classes seraient écrites dans six fichiers .js, ce qui
+   serait impossible à maintenir. */
+@layer components {
+
+  /* --- Boutons --- */
+  .btn {
+    @apply inline-block cursor-pointer rounded-lg border border-transparent px-4 py-2.5 text-sm font-medium transition;
+  }
+  .btn-primary {
+    @apply bg-brand text-white hover:bg-brand-dark;
+  }
+  .btn-ghost {
+    @apply border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50;
+  }
+  .btn-link {
+    @apply border-0 bg-transparent p-0 text-sm text-red-600 underline hover:text-red-700;
+  }
+  .btn:disabled {
+    @apply cursor-not-allowed opacity-60;
+  }
+
+  /* --- Formulaires --- */
+  .field {
+    @apply mb-4;
+  }
+  .field label {
+    @apply mb-1 block text-sm font-semibold text-slate-700;
+  }
+  .field small {
+    @apply text-xs text-slate-500;
+  }
+  .input {
+    @apply w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-brand focus:ring-2 focus:ring-brand/30 focus:outline-none;
+  }
+  .panel {
+    @apply rounded-xl border border-slate-200 bg-white p-5;
+  }
+
+  /* --- Messages d'erreur et d'information (voir showMessage() dans ui.js) --- */
+  .alert {
+    @apply mb-5 rounded-lg border border-slate-200 border-l-4 bg-white px-4 py-3 text-sm;
+  }
+  .alert-error {
+    @apply border-l-red-600 text-red-700;
+  }
+  .alert-success {
+    @apply border-l-green-600 text-green-700;
+  }
+  .alert-info {
+    @apply border-l-brand text-slate-700;
+  }
+
+  /* --- Tableau de données --- */
+  .table-wrap {
+    @apply mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white;
+  }
+  .table {
+    @apply w-full min-w-[560px] border-collapse text-sm;
+  }
+  .table th {
+    @apply border-b border-slate-200 px-4 py-3 text-left text-xs font-semibold tracking-wide text-slate-500 uppercase;
+  }
+  .table td {
+    @apply border-b border-slate-200 px-4 py-3 align-middle;
+  }
+  .table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+  .num {
+    @apply whitespace-nowrap;
+  }
+
+  /* --- Fragments construits par JavaScript --- */
+
+  /* Carte produit (js/products.js) */
+  .product-card {
+    @apply flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm;
+  }
+  .product-card-body {
+    @apply flex flex-col gap-1.5 p-4;
+  }
+  .product-card-category {
+    @apply text-xs tracking-wide text-slate-500 uppercase;
+  }
+  .product-card-name {
+    @apply text-base font-semibold text-slate-900;
+  }
+  .product-card-price {
+    @apply mt-1 text-lg font-bold;
+  }
+
+  /* Vignette : remplace l'image quand le produit n'en a pas (js/ui.js) */
+  .thumb {
+    @apply grid aspect-[4/3] place-items-center bg-linear-to-br from-sky-400 to-brand;
+  }
+  .thumb img {
+    @apply h-full w-full object-cover;
+  }
+  .thumb-letter {
+    @apply text-4xl font-bold text-white;
+  }
+
+  /* Badge de stock (js/ui.js) */
+  .badge {
+    @apply self-start rounded-full px-2.5 py-0.5 text-xs;
+  }
+  .badge-ok {
+    @apply bg-green-100 text-green-700;
+  }
+  .badge-low {
+    @apply bg-amber-100 text-amber-700;
+  }
+  .badge-out {
+    @apply bg-red-100 text-red-700;
+  }
+
+  /* Rangée horizontale de la homepage : les cartes gardent une largeur fixe
+     et dépassent du cadre, ce qui rend la bande défilable au doigt. */
+  .product-row > .product-card {
+    @apply w-56 shrink-0;
+  }
+
+  /* Ligne du panier (js/cart.js) */
+  .cell-product {
+    @apply flex items-center gap-3;
+  }
+  .cell-product .thumb {
+    @apply aspect-square w-14 shrink-0 rounded-lg;
+  }
+  .cell-product .thumb-letter {
+    @apply text-xl;
+  }
+  /* Récapitulatif de commande (checkout.html) */
+  .recap {
+    @apply mb-2 list-none p-0;
+  }
+  .recap li {
+    @apply flex justify-between gap-4 border-b border-slate-200 py-2 text-sm;
+  }
+  .recap li:last-child {
+    @apply border-b-0;
+  }
+  .total-line {
+    @apply text-lg font-bold;
+  }
+  .note {
+    @apply text-xs text-slate-500;
+  }
+}
+
+/* L'attribut HTML "hidden" doit toujours l'emporter, même sur un élément
+   auquel une classe donne un display (flex, grid...). Cette règle est placée
+   hors de toute couche pour passer devant les classes Tailwind. */
+[hidden] {
+  display: none !important;
+}
