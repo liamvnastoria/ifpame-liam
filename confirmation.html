@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atelier Déco — Confirmation</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a class="brand" href="index.html">Atelier<span>Déco</span></a>
+      <nav class="site-nav">
+        <a href="index.html">Accueil</a>
+        <a href="products.html">Catalogue</a>
+        <a href="cart.html">Panier <span class="cart-count" data-cart-count hidden>0</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Cas 1 : on arrive ici après une commande réussie. -->
+    <section class="confirmation" id="confirmation-content" hidden>
+      <h1>Commande enregistrée</h1>
+      <p>Merci ! Votre commande a bien été prise en compte.</p>
+      <p class="confirmation__order">
+        Numéro de commande : <strong id="order-ref"></strong>
+      </p>
+      <!-- Le montant affiché vient de la réponse du serveur : c'est le total
+           réellement calculé par PHP, pas celui du navigateur. -->
+      <p class="confirmation__order">
+        Montant enregistré : <strong id="order-total"></strong>
+      </p>
+      <p class="summary__note">
+        Projet pédagogique : aucune commande n'est réellement traitée et aucun
+        paiement n'a été demandé.
+      </p>
+      <div class="actions">
+        <a class="btn btn--primary" href="products.html">Revenir au catalogue</a>
+      </div>
+    </section>
+
+    <!-- Cas 2 : page ouverte directement, sans commande en cours. -->
+    <section class="confirmation" id="confirmation-empty" hidden>
+      <h1>Aucune commande récente</h1>
+      <p class="summary__note">
+        Cette page affiche la commande qui vient d'être validée. Si vous
+        l'ouvrez directement, il n'y a rien à afficher.
+      </p>
+      <div class="actions">
+        <a class="btn btn--primary" href="products.html">Voir le catalogue</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>Projet pédagogique — boutique fictive, aucun paiement réel.</p>
+    </div>
+  </footer>
+
+  <script src="js/cart-storage.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/confirmation.js"></script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atelier Déco — Fiche produit</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a class="brand" href="index.html">Atelier<span>Déco</span></a>
+      <nav class="site-nav">
+        <a href="index.html">Accueil</a>
+        <a href="products.html">Catalogue</a>
+        <a href="cart.html">Panier <span class="cart-count" data-cart-count hidden>0</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <p><a href="products.html">← Retour au catalogue</a></p>
+
+    <div class="alert" id="message" hidden></div>
+
+    <p class="state" id="loading">Chargement du produit…</p>
+
+    <!-- Contenu rempli par js/product.js. La structure est déjà là : le
+         JavaScript ne fait que la remplir et la démasquer. -->
+    <article class="product-detail" id="product-detail" hidden>
+      <div id="product-image"></div>
+
+      <div>
+        <p class="product-card__category" id="product-category"></p>
+        <h1 id="product-name"></h1>
+        <p class="product-detail__price" id="product-price"></p>
+        <p id="product-stock"></p>
+        <p class="product-detail__description" id="product-description"></p>
+
+        <div class="buy-box">
+          <div>
+            <label for="quantity">Quantité</label>
+            <input type="number" id="quantity" value="1" min="1" step="1">
+          </div>
+          <button class="btn btn--primary" type="button" id="add-to-cart">Ajouter au panier</button>
+          <a class="btn btn--ghost" href="cart.html">Voir le panier</a>
+        </div>
+      </div>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>Projet pédagogique — boutique fictive, aucun paiement réel.</p>
+    </div>
+  </footer>
+
+  <script src="js/cart-storage.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/product.js"></script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atelier Déco — Catalogue</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a class="brand" href="index.html">Atelier<span>Déco</span></a>
+      <nav class="site-nav">
+        <a href="index.html">Accueil</a>
+        <a href="products.html">Catalogue</a>
+        <a href="cart.html">Panier <span class="cart-count" data-cart-count hidden>0</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <h1>Catalogue</h1>
+
+    <!-- Un vrai <form> : la touche Entrée déclenche la recherche sans code
+         supplémentaire. Le JavaScript intercepte ensuite l'événement submit
+         pour éviter un rechargement de page. -->
+    <form class="filters" id="search-form">
+      <input type="search" id="search" name="search" placeholder="Rechercher un produit…" autocomplete="off">
+      <!-- Les options sont ajoutées par JavaScript après l'appel à
+           api/categories.php. -->
+      <select id="category" name="category">
+        <option value="">Toutes les catégories</option>
+      </select>
+      <button class="btn btn--primary" type="submit">Rechercher</button>
+    </form>
+
+    <div class="alert" id="message" hidden></div>
+
+    <p class="state" id="loading">Chargement du catalogue…</p>
+    <p class="state" id="empty" hidden>Aucun produit ne correspond à cette recherche.</p>
+
+    <!-- Grille remplie par js/products.js -->
+    <div class="product-grid" id="product-grid"></div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>Projet pédagogique — boutique fictive, aucun paiement réel.</p>
+    </div>
+  </footer>
+
+  <!-- L'ordre compte : la page utilise les fonctions des fichiers précédents. -->
+  <script src="js/cart-storage.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/products.js"></script>
+</body>
+</html>

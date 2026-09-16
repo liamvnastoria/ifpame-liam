@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atelier Déco — Accueil</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- En-tête identique sur toutes les pages.
+       Le bloc [data-cart-count] est rempli par refreshCartBadge() (js/cart-storage.js). -->
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a class="brand" href="index.html">Atelier<span>Déco</span></a>
+      <nav class="site-nav">
+        <a href="index.html">Accueil</a>
+        <a href="products.html">Catalogue</a>
+        <a href="cart.html">Panier <span class="cart-count" data-cart-count hidden>0</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Cette page est volontairement statique : aucun JavaScript, aucun appel à
+       l'API. Elle sert de point d'entrée et renvoie vers le catalogue. -->
+  <main class="container">
+    <section class="hero">
+      <h1>Meubles et objets pour la maison</h1>
+      <p>
+        Boutique fictive réalisée dans un cadre pédagogique : catalogue, fiche
+        produit, panier et passage de commande, sans aucune transaction réelle.
+      </p>
+      <a class="btn btn--primary" href="products.html">Voir le catalogue</a>
+    </section>
+
+    <section class="features">
+      <article class="feature">
+        <h2>Un catalogue filtrable</h2>
+        <p>Recherche par nom et filtre par catégorie, interrogés directement en base de données.</p>
+      </article>
+      <article class="feature">
+        <h2>Un panier local</h2>
+        <p>Vos articles sont conservés dans le navigateur, sans compte ni connexion.</p>
+      </article>
+      <article class="feature">
+        <h2>Un total calculé côté serveur</h2>
+        <p>PHP relit les prix en base au moment de commander : le prix envoyé par le navigateur n'est jamais utilisé.</p>
+      </article>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>Projet pédagogique — boutique fictive, aucun paiement réel.</p>
+    </div>
+  </footer>
+
+  <!-- cart-storage.js est nécessaire ici uniquement pour le badge du panier. -->
+  <script src="js/cart-storage.js"></script>
+  <script>
+    // Scripts placés en fin de <body> : le DOM est déjà construit, il n'y a
+    // donc pas besoin d'attendre un événement DOMContentLoaded.
+    refreshCartBadge();
+  </script>
+</body>
+</html>

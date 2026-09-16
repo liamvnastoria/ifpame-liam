@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atelier Déco — Panier</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a class="brand" href="index.html">Atelier<span>Déco</span></a>
+      <nav class="site-nav">
+        <a href="index.html">Accueil</a>
+        <a href="products.html">Catalogue</a>
+        <a href="cart.html">Panier <span class="cart-count" data-cart-count hidden>0</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>Mon panier</h1>
+      <!-- Bouton discret pour vider le panier d'un coup. -->
+      <button class="btn btn--link" type="button" id="clear-cart" hidden>Vider le panier</button>
+    </div>
+
+    <!-- Message affiché si le panier est vide : le tableau et le total
+         restent alors masqués. -->
+    <p class="state" id="cart-empty">
+      Votre panier est vide. <a href="products.html">Parcourir le catalogue</a>.
+    </p>
+
+    <div class="table-wrap" id="cart-table-wrapper" hidden>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Produit</th>
+            <th scope="col">Prix unitaire</th>
+            <th scope="col">Quantité</th>
+            <th scope="col">Sous-total</th>
+            <th scope="col">Action</th>
+          </tr>
+        </thead>
+        <!-- Les lignes sont créées par js/cart.js à partir de localStorage. -->
+        <tbody id="cart-items"></tbody>
+      </table>
+    </div>
+
+    <div class="summary" id="cart-summary" hidden>
+      <p class="summary__total">Total : <span id="cart-total"></span></p>
+      <p class="summary__note">
+        Montant indicatif calculé dans votre navigateur. Le montant définitif
+        est recalculé par le serveur à partir des prix en base de données au
+        moment de la commande.
+      </p>
+      <div class="actions">
+        <a class="btn btn--primary" href="checkout.html">Passer la commande</a>
+        <a class="btn btn--ghost" href="products.html">Continuer mes achats</a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>Projet pédagogique — boutique fictive, aucun paiement réel.</p>
+    </div>
+  </footer>
+
+  <script src="js/cart-storage.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/cart.js"></script>
+</body>
+</html>

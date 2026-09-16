@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atelier Déco — Commande</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a class="brand" href="index.html">Atelier<span>Déco</span></a>
+      <nav class="site-nav">
+        <a href="index.html">Accueil</a>
+        <a href="products.html">Catalogue</a>
+        <a href="cart.html">Panier <span class="cart-count" data-cart-count hidden>0</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <h1>Finaliser la commande</h1>
+
+    <div class="alert" id="message" hidden></div>
+
+    <!-- Affiché si la page est ouverte avec un panier vide. -->
+    <div class="alert alert--info" id="checkout-empty" hidden>
+      Votre panier est vide : il n'y a rien à commander.
+      <a href="products.html">Retour au catalogue</a>.
+    </div>
+
+    <div class="checkout-layout" id="checkout-content" hidden>
+
+      <section class="panel">
+        <h2>Vos coordonnées</h2>
+        <p class="summary__note">
+          Aucun compte n'est nécessaire : ces informations sont enregistrées
+          avec la commande, elles ne servent à aucune authentification.
+        </p>
+
+        <!-- L'attribut novalidate désactive les bulles de validation du
+             navigateur. Les attributs required et type="email" sont conservés
+             pour le sens et pour les claviers de téléphone, mais ce sont nos
+             propres messages en français qui s'affichent (js/checkout.js). -->
+        <form id="checkout-form" novalidate>
+          <div class="field">
+            <label for="name">Nom complet</label>
+            <input type="text" id="name" name="name" maxlength="100" required autocomplete="name">
+            <small>100 caractères maximum (comme la colonne customer_name).</small>
+          </div>
+
+          <div class="field">
+            <label for="email">Adresse e-mail</label>
+            <input type="email" id="email" name="email" maxlength="150" required autocomplete="email">
+            <small>150 caractères maximum (comme la colonne customer_email).</small>
+          </div>
+
+          <div class="field">
+            <label for="address">Adresse de livraison</label>
+            <textarea id="address" name="address" rows="3" maxlength="255" required autocomplete="street-address"></textarea>
+            <small>Rue, numéro, code postal et ville — 255 caractères maximum.</small>
+          </div>
+
+          <button class="btn btn--primary" type="submit" id="submit-order">Valider la commande</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Récapitulatif</h2>
+        <!-- Contenu construit par js/checkout.js à partir de localStorage. -->
+        <ul class="recap" id="summary-items"></ul>
+        <p class="summary__total">Total : <span id="summary-total"></span></p>
+        <p class="summary__note">
+          Montant affiché par le navigateur. Le montant réellement enregistré
+          est celui que PHP recalcule à partir des prix lus en base.
+        </p>
+      </section>
+
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>Projet pédagogique — boutique fictive, aucun paiement réel.</p>
+    </div>
+  </footer>
+
+  <script src="js/cart-storage.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/checkout.js"></script>
+</body>
+</html>
