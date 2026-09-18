@@ -84,12 +84,30 @@
              texte n'est jamais envoyé au serveur, il ne fait que confirmer
              au visiteur à quel nom la commande sera enregistrée. -->
         <p class="note mt-2">Commande au nom de <strong id="checkout-customer"></strong></p>
-        <!-- Contenu construit par js/checkout.js à partir de localStorage. -->
+        <!-- Contenu construit par js/checkout.js à partir du panier serveur. -->
         <ul class="recap mt-3" id="summary-items"></ul>
-        <p class="total-line">Total : <span id="summary-total"></span></p>
+
+        <dl class="mt-4 space-y-1 border-t border-slate-200 pt-3 text-sm">
+          <div class="flex justify-between gap-4">
+            <dt class="text-slate-500">Sous-total</dt>
+            <dd class="text-slate-800" id="summary-subtotal"></dd>
+          </div>
+          <div class="flex justify-between gap-4">
+            <dt class="text-slate-500">Livraison</dt>
+            <dd class="text-slate-800" id="summary-shipping"></dd>
+          </div>
+          <p class="text-xs text-slate-400" id="summary-shipping-value"></p>
+          <div class="flex justify-between gap-4">
+            <dt class="text-slate-500">Dont TVA 21 %</dt>
+            <dd class="text-slate-800" id="summary-vat"></dd>
+          </div>
+        </dl>
+
+        <p class="total-line mt-2">Total : <span id="summary-total"></span></p>
         <p class="note">
-          Montant affiché par le navigateur. Le montant réellement enregistré
-          est celui que PHP recalcule à partir des prix lus en base.
+          Montant affiché par le navigateur, avec la même règle de livraison
+          que le serveur. Le montant réellement enregistré est celui que PHP
+          recalcule à partir des prix lus en base.
         </p>
       </section>
 

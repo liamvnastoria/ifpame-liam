@@ -1,0 +1,81 @@
+# =============================================================
+#  GitHub Pages — vitrine statique
+#
+#  GitHub Pages ne peut servir QUE des fichiers statiques : il n'exécute ni
+#  PHP ni MySQL. Ce workflow publie donc les pages HTML/CSS/JS telles quelles :
+#  le design est visible en production, mais les données dynamiques (comptes,
+#  panier, commandes) s'appuient sur l'API PHP et afficheront des erreurs.
+#
+#  Le site réellement fonctionnel vit dans Docker (voir docker-compose.yml).
+#
+#  Activation (une fois, dans le repo) :
+#    Settings → Pages → Build and deployment → Source : "GitHub Actions".
+#  Ensuite, chaque push sur main déclenche ce workflow, qui publie le site sur
+#  https://<utilisateur>.github.io/<repo>/.
+# =============================================================
+
+name: Pages — vitrine statique
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+# Droits nécessaires à actions/deploy-pages : publier la page (pages) et
+# s'authentifier auprès de GitHub (id-token). Le reste est en lecture seule.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un seul déploiement Pages à la fois : un push annule le précédent au lieu
+# d'en empiler deux.
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Le CSS est un fichier Tailwind compilé : il est régénéré ici à partir
+      # de src/input.css, pour que la vitrine reflète toujours les dernières
+      # classes. Le site livré ne contient donc QUE du statique.
+      - name: Set up Node (build CSS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build CSS
+        run: npm run css
+
+      # On ne publie que la vitrine : les fichiers HTML, le CSS et le JS.
+      # Tout le reste (API PHP, base, sources Tailwind, node_modules) reste
+      # dans le dépôt mais n'a rien à faire sur la page.
+      - name: Stage static files
+        run: |
+          mkdir -p _site
+          cp *.html _site/
+          cp -r css js _site/
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

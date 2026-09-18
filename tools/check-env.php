@@ -30,7 +30,7 @@ require_once __DIR__ . '/../config/database.php';
 // The tables the application cannot work without. Listed here rather than
 // discovered, because "the schema was never imported" is the mistake this
 // check must catch by name.
-const EXPECTED_TABLES = ['categories', 'products', 'users', 'orders', 'order_items'];
+const EXPECTED_TABLES = ['categories', 'products', 'users', 'orders', 'order_items', 'cart_items', 'wishlist', 'reviews'];
 
 $problems = 0;
 

@@ -165,7 +165,7 @@ function current_user(): ?array
     }
 
     try {
-        $statement = db()->prepare('SELECT id, name, email FROM users WHERE id = :id');
+        $statement = db()->prepare('SELECT id, name, email, address FROM users WHERE id = :id');
         $statement->execute(['id' => $_SESSION['user_id']]);
         $user = $statement->fetch();
     } catch (PDOException $e) {

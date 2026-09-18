@@ -3,13 +3,17 @@
  *
  * C'est ici que le frontend et le backend se rencontrent :
  *
- *   panier (localStorage) + compte connecté → validation → POST api/orders.php
- *   → PHP relit les prix en base → {"success": true, "data": {order_id, total}}
- *   → confirmation.html
+ *   panier serveur + compte connecté → POST api/orders.php {address}
+ *   → PHP relit les prix et le panier en base → {"success": true,
+ *     "data": {order_id, subtotal, shipping, total}} → confirmation.html
  *
- * Depuis l'ajout des comptes, cette page attend la réponse de api/me.php
- * avant d'afficher quoi que ce soit : sans compte, il n'y a pas de commande à
- * préparer.
+ * Le navigateur n'envoie QUE l'adresse : les articles viennent du panier du
+ * compte, lus par PHP dans cart_items. Il est donc impossible d'inventer une
+ * ligne ou un prix depuis la console du navigateur.
+ *
+ * Frais de port affichés : 4,95 € sous 75 €, gratuit à partir de 75 €. La
+ * règle est la même ici (pour l'affichage) et dans api/orders.php (pour le
+ * montant réel), qui reste la seule source de vérité.
  *
  * Dépend de : cart-storage.js, api.js, ui.js, auth.js.
  */
@@ -19,10 +23,35 @@ const emptyState = document.getElementById("checkout-empty");
 const loginState = document.getElementById("checkout-login");
 const content = document.getElementById("checkout-content");
 const form = document.getElementById("checkout-form");
+const addressField = document.getElementById("address");
 const customerLabel = document.getElementById("checkout-customer");
 const summaryItems = document.getElementById("summary-items");
+const summarySubtotal = document.getElementById("summary-subtotal");
+const summaryShipping = document.getElementById("summary-shipping");
+const summaryShippingValue = document.getElementById("summary-shipping-value");
+const summaryVat = document.getElementById("summary-vat");
 const summaryTotal = document.getElementById("summary-total");
 const submitButton = document.getElementById("submit-order");
+
+// Même règle de livraison que dans api/orders.php : affichée ici, appliquée
+// là-bas. Un seul endroit à modifier pour les deux.
+const FREE_SHIPPING_FROM = 75;
+const SHIPPING_COST = 4.95;
+const VAT_RATE = 0.21;
+
+/** Règle des frais de port, utilisée aussi pour l'aperçu du récapitulatif. */
+function shippingFor(subtotal) {
+  return subtotal >= FREE_SHIPPING_FROM ? 0 : SHIPPING_COST;
+}
+
+/**
+ * Montant de TVA contenu dans le total. Les prix sont affichés TVA comprise,
+ * donc la TVA incluse est le total x 21/121 (et non x 21 %, qui donnerait le
+ * montant hors TVA).
+ */
+function vatIncludedIn(total) {
+  return total * (VAT_RATE / (1 + VAT_RATE));
+}
 
 /** Affiche le récapitulatif de ce qui va être envoyé. */
 function renderSummary() {
@@ -40,7 +69,18 @@ function renderSummary() {
   });
 
   summaryItems.replaceChildren(...rows);
-  summaryTotal.textContent = formatPrice(getCartTotal());
+
+  const subtotal = getCartTotal();
+  const shipping = shippingFor(subtotal);
+  const total = subtotal + shipping;
+
+  summarySubtotal.textContent = formatPrice(subtotal);
+  summaryShipping.textContent = shipping === 0 ? "Offerts" : formatPrice(shipping);
+  // Le libellé garde la règle visible : « Offerts dès 75 € » aide à comprendre.
+  summaryShippingValue.textContent =
+    shipping === 0 ? "Livraison offerte dès " + FREE_SHIPPING_FROM + " €" : "Standard (gratuite dès " + FREE_SHIPPING_FROM + " €)";
+  summaryVat.textContent = formatPrice(vatIncludedIn(total));
+  summaryTotal.textContent = formatPrice(total);
 }
 
 /**
@@ -76,18 +116,7 @@ async function submitOrder(event) {
     return;
   }
 
-  const payload = {
-    address: address,
-    // Seuls l'identifiant et la quantité sont transmis. Ni le prix, ni le
-    // nom du client : les deux sont relus en base par PHP (le prix depuis
-    // products, le client depuis la session).
-    items: getCart().map((line) => ({
-      product_id: line.id,
-      quantity: line.quantity,
-    })),
-  };
-
-  if (payload.items.length === 0) {
+  if (getCart().length === 0) {
     showMessage(message, "Votre panier est vide.", "error");
     return;
   }
@@ -98,18 +127,23 @@ async function submitOrder(event) {
   submitButton.textContent = "Envoi en cours…";
 
   try {
+    // SEULE l'adresse part dans le corps de la requête. Les articles sont lus
+    // par PHP dans le panier du compte, et les prix dans la base.
     const data = await fetchJson("api/orders.php", {
       method: "POST",
       // Sans cet en-tête, PHP ne saurait pas que le corps contient du JSON :
       // c'est ce qui fait que $_POST reste vide et qu'on lit php://input.
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ address: address }),
     });
 
     // La commande créée est transmise à la page suivante par sessionStorage :
     // cet espace survit au changement de page mais se vide à la fermeture de
     // l'onglet. Le total affiché sera celui calculé par PHP, pas le nôtre.
     sessionStorage.setItem("lastOrder", JSON.stringify(data));
+    // Le serveur a vidé le panier dans la transaction : on oublie notre copie
+    // locale, sinon le badge garderait un vieux compte.
+    resetCartCache();
     window.location.href = "confirmation.html";
   } catch (error) {
     // Cas rencontrés ici : session expirée (401), stock insuffisant (409),
@@ -143,6 +177,13 @@ async function init() {
   // formulaire : personne ne peut commander au nom d'un autre en modifiant la
   // page, puisque ce texte n'est jamais envoyé au serveur.
   customerLabel.textContent = user.name;
+
+  // L'adresse enregistrée dans le profil pré-remplit le champ : un confort,
+  // jamais une obligation (l'adresse reste modifiable avant validation).
+  if (user.address) {
+    addressField.value = user.address;
+  }
+
   renderSummary();
   content.hidden = false;
   form.addEventListener("submit", submitOrder);

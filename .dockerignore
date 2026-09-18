@@ -1,0 +1,29 @@
+# What the Docker build context may ignore.
+# Keeps the image small and, more importantly, keeps development files
+# (dependencies, databases, git history) out of the deployed container.
+
+# Dependencies and build artifacts
+node_modules/
+public/
+build/
+
+# Local database / config secrets that must never enter an image
+database/
+.env
+.env*.local
+
+# VCS and editor cruft
+.git/
+.gitignore
+.DS_Store
+*.log
+
+# Deployment tooling
+.vercel/
+vercel.json
+.dockerignore
+docker-compose.yml
+
+# PHP never reads tools/check-env.php (it is a terminal helper) but the
+# folder is tiny; it is excluded to keep the image minimal.
+tools/

@@ -11,15 +11,25 @@
 // 127.0.0.1 instead of "localhost": with MySQL, "localhost" can make the
 // client use a Unix socket rather than TCP, which fails on some Windows
 // setups. 127.0.0.1 forces a plain TCP connection.
-const DB_HOST    = '127.0.0.1';
-const DB_NAME    = 'shop';
+// In Docker (docker-compose.yml) these values come from environment variables
+// set on the containers (DB_HOST=db, etc.). Each define() falls back to the
+// local default when the variable is absent, so the project keeps working
+// unchanged on a plain XAMPP/MAMP/php -S setup.
+// (define() and not const: const only accepts compile-time values, it would
+// reject a call to getenv().)
+
+// 127.0.0.1 instead of "localhost": with MySQL, "localhost" can make the
+// client use a Unix socket rather than TCP, which fails on some Windows
+// setups. 127.0.0.1 forces a plain TCP connection.
+define('DB_HOST', getenv('DB_HOST') ?: '127.0.0.1');
+define('DB_NAME', getenv('DB_NAME') ?: 'shop');
 // The application does NOT connect as root. This account is created at the end
-// of database/schema.sql: it may only read the catalogue, insert an order and
-// update a stock, which is everything the API does. That file also explains
+// of database/schema.sql: it may only read the catalogue, manage a cart and a
+// wishlist, create an order and decrement a stock. That file also explains
 // why root would not work here on Debian or Ubuntu.
-const DB_USER    = 'shop';
-const DB_PASS    = 'shop_local';
-const DB_CHARSET = 'utf8mb4';
+define('DB_USER', getenv('DB_USER') ?: 'shop');
+define('DB_PASS', getenv('DB_PASS') ?: 'shop_local');
+define('DB_CHARSET', 'utf8mb4');
 
 /**
  * Builds the PDO connection.

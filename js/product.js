@@ -2,9 +2,13 @@
  * Fiche produit — product.html?id=1
  *
  * Flux : on lit l'id dans l'URL → GET api/product.php?id=… → on remplit la
- * page → le bouton « Ajouter au panier » écrit dans localStorage.
+ * page → le bouton « Ajouter au panier » appelle POST api/cart.php.
  *
- * Dépend de : cart-storage.js, api.js, ui.js.
+ * Depuis que le panier est réservé aux comptes, il faut être connecté pour
+ * ajouter un produit : un visiteur sans compte est envoyé vers le formulaire
+ * de connexion, qui le ramène ici grâce au paramètre next=.
+ *
+ * Dépend de : cart-storage.js, api.js, ui.js, auth.js.
  */
 
 const message = document.getElementById("message");
@@ -22,6 +26,8 @@ const addButton = document.getElementById("add-to-cart");
 // Le produit renvoyé par l'API est mémorisé ici : le clic sur « Ajouter au
 // panier » n'a pas besoin de refaire un appel réseau pour l'obtenir.
 let currentProduct = null;
+// L'utilisateur connecté (null si visiteur), rempli par initAuth().
+let currentUser = null;
 
 /** Valide l'id reçu dans l'URL avant d'appeler l'API. */
 function readProductId() {
@@ -82,27 +88,40 @@ function renderProduct(product) {
   detail.hidden = false;
 }
 
-/** Ajoute le produit et la quantité choisis au panier. */
-function handleAddToCart() {
+/** Ajoute le produit et la quantité choisis au panier serveur. */
+async function handleAddToCart() {
   if (currentProduct === null) {
     return;
   }
 
-  const added = addToCart(currentProduct, quantityInput.value);
-
-  if (added === 0) {
-    showMessage(message, "Ce produit n'est plus disponible.", "error");
+  // Le panier est réservé aux comptes : sans connexion, on renvoie vers le
+  // formulaire avec un next= qui ramène ici juste après la connexion.
+  if (currentUser === null) {
+    window.location.href =
+      "login.html?next=" + encodeURIComponent("product.html?id=" + currentProduct.id);
     return;
   }
 
-  // addToCart renvoie la quantité désormais présente dans le panier : le
-  // visiteur comprend pourquoi le nombre a augmenté s'il a cliqué deux fois.
-  showMessage(
-    message,
-    currentProduct.name + " a été ajouté au panier (" + added + " au total).",
-    "success"
-  );
-  refreshCartBadge();
+  addButton.disabled = true;
+  addButton.textContent = "Ajout en cours…";
+
+  try {
+    // Le serveur vérifie le stock et renvoie le nombre total d'articles : le
+    // visiteur comprend pourquoi le nombre a augmenté s'il a cliqué deux fois.
+    const count = await addToCart(currentProduct.id, quantityInput.value);
+    showMessage(
+      message,
+      currentProduct.name + " a été ajouté au panier (" + count + " article(s) au total).",
+      "success"
+    );
+    refreshCartBadge();
+  } catch (error) {
+    // Cas fréquents : stock insuffisant (409), session expirée (401).
+    showMessage(message, error.message, "error");
+  }
+
+  addButton.disabled = false;
+  addButton.textContent = "Ajouter au panier";
 }
 
 /** Charge le produit demandé au démarrage de la page. */
@@ -111,7 +130,7 @@ async function init() {
   // La barre des départements et la zone de compte sont communes à toutes
   // les pages : elles se chargent ici, en parallèle de la fiche produit.
   initHeaderNav();
-  initAuth();
+  currentUser = await initAuth();
 
   const id = readProductId();
   if (id === null) {

@@ -66,19 +66,39 @@ function renderAccountNav(user) {
 }
 
 /**
- * Charge l'utilisateur et met l'en-tête à jour.
+ * Charge l'utilisateur et met l'en-tête à jour. Quand un compte est connecté,
+ * son panier serveur est chargé en même temps : le badge de l'en-tête reflète
+ * alors son vrai contenu.
  * @returns {Promise<object|null>} L'utilisateur, pour que la page puisse s'en servir.
  */
 function initAuth() {
   return getCurrentUser()
     .then((user) => {
       renderAccountNav(user);
+
+      if (user === null) {
+        // Visiteur sans compte : pas de panier serveur, le badge reste vide.
+        resetCartCache();
+        refreshCartBadge();
+      } else {
+        loadCart()
+          .then(refreshCartBadge)
+          .catch((error) => {
+            // Panier indisponible : la page reste utilisable, le badge reste
+            // simplement vide.
+            console.warn("Panier indisponible :", error.message);
+            refreshCartBadge();
+          });
+      }
+
       return user;
     })
     .catch(() => {
       // Erreur réseau : la page reste utilisable, l'en-tête affiche
       // simplement « Connexion ».
       renderAccountNav(null);
+      resetCartCache();
+      refreshCartBadge();
       return null;
     });
 }
@@ -94,6 +114,9 @@ async function logout() {
   }
 
   forgetCurrentUser();
+  // Le panier du compte ne doit pas survivre à la déconnexion dans l'écran.
+  resetCartCache();
+  refreshCartBadge();
   window.location.href = "index.html";
 }
 
@@ -251,67 +274,4 @@ function formatOrderDate(value) {
   }
 
   return date.toLocaleDateString("fr-BE", { day: "numeric", month: "long", year: "numeric" });
-}
-
-/** Construit le bloc d'une commande dans l'historique. */
-function createOrderBlock(order) {
-  const block = el("li", "rounded-xl border border-slate-200 bg-white p-5");
-
-  const header = el("div", "flex flex-wrap items-baseline justify-between gap-2");
-  header.append(
-    el("span", "font-semibold text-slate-900", "Commande #" + order.id),
-    el("span", "text-sm text-slate-500", formatOrderDate(order.created_at)),
-    el("span", "font-bold", formatPrice(order.total))
-  );
-
-  const lines = el("ul", "mt-3 space-y-1 border-t border-slate-200 pt-3 text-sm text-slate-600");
-  for (const line of order.items) {
-    lines.append(
-      el("li", null, line.quantity + " × " + line.name + " — " + formatPrice(line.unit_price))
-    );
-  }
-
-  block.append(header, lines);
-  return block;
-}
-
-/** Page « Mon compte » (account.html). */
-async function initAccountPage() {
-  const page = document.getElementById("account-page");
-  if (page === null) {
-    return;
-  }
-
-  const user = await getCurrentUser();
-
-  if (user === null) {
-    // La page est accessible en tapant son adresse : un visiteur sans compte
-    // est envoyé vers le formulaire de connexion, plutôt que de voir une page
-    // vide sans explication.
-    window.location.href = "login.html?next=account.html";
-    return;
-  }
-
-  document.getElementById("account-name").textContent = user.name;
-  document.getElementById("account-email").textContent = user.email;
-  document.getElementById("account-logout").addEventListener("click", logout);
-  page.hidden = false;
-
-  const list = document.getElementById("order-history");
-  const message = document.getElementById("message");
-
-  try {
-    // GET api/orders.php ne prend aucun paramètre : l'API filtre sur le
-    // compte de la session et ne renvoie que SES commandes.
-    const orders = await fetchJson("api/orders.php");
-
-    if (orders.length === 0) {
-      list.append(el("li", "py-3 text-slate-500", "Vous n'avez pas encore passé de commande."));
-      return;
-    }
-
-    list.replaceChildren(...orders.map(createOrderBlock));
-  } catch (error) {
-    showMessage(message, error.message, "error");
-  }
 }

@@ -38,6 +38,17 @@
       <button class="btn btn-link" type="button" id="clear-cart" hidden>Vider le panier</button>
     </div>
 
+    <div class="alert" id="message" hidden></div>
+
+    <!-- Affiché si le visiteur n'est pas connecté : le panier est réservé
+         aux comptes. -->
+    <div class="alert alert-info" id="cart-login" hidden>
+      Le panier est lié à votre compte. Connectez-vous pour le voir :
+      <a class="text-brand hover:underline" href="login.html?next=cart.html">se connecter</a>.
+      <br>
+      <span class="note">Comptes de démonstration : marie.dupont@example.com ou karim.benali@example.com, mot de passe demo1234.</span>
+    </div>
+
     <!-- Message affiché si le panier est vide : le tableau et le total
          restent alors masqués. -->
     <p class="py-5 text-slate-500" id="cart-empty">
@@ -55,17 +66,17 @@
             <th scope="col">Action</th>
           </tr>
         </thead>
-        <!-- Les lignes sont créées par js/cart.js à partir de localStorage. -->
+        <!-- Les lignes sont créées par js/cart.js à partir du panier serveur. -->
         <tbody id="cart-items"></tbody>
       </table>
     </div>
 
     <div class="flex flex-wrap items-center justify-between gap-4" id="cart-summary" hidden>
-      <p class="total-line">Total : <span id="cart-total"></span></p>
+      <p class="total-line">Sous-total : <span id="cart-total"></span></p>
       <p class="note w-full">
-        Montant indicatif calculé dans votre navigateur. Le montant définitif
-        est recalculé par le serveur à partir des prix en base de données au
-        moment de la commande.
+        Panier enregistré sur votre compte. Les frais de port sont calculés au
+        moment de la commande, et le montant définitif est recalculé par le
+        serveur à partir des prix en base de données.
       </p>
       <div class="flex flex-wrap gap-3">
         <a class="btn btn-primary" href="checkout.html">Passer la commande</a>

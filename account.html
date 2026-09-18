@@ -44,9 +44,65 @@
       </p>
       <button class="btn btn-ghost mt-4" type="button" id="account-logout">Se déconnecter</button>
 
-      <h2 class="mt-10 text-xl font-bold text-slate-900">Mes commandes</h2>
-      <!-- Rempli par initAccountPage() avec le résultat de GET api/orders.php -->
-      <ul class="mt-4 space-y-4" id="order-history"></ul>
+      <section class="mt-10">
+        <h2 class="text-xl font-bold text-slate-900">Mon profil</h2>
+        <p class="note mt-1">
+          L'adresse enregistrée pré-remplit le formulaire de commande. Vous
+          pouvez la modifier ici à tout moment.
+        </p>
+
+        <div class="mt-4 grid gap-6 lg:grid-cols-2">
+          <form class="panel" id="profile-form" novalidate>
+            <h3 class="font-semibold text-slate-900">Informations</h3>
+            <div class="mt-3 field">
+              <label for="profile-name">Nom</label>
+              <input class="input" id="profile-name" name="name" maxlength="100" required>
+            </div>
+            <div class="field">
+              <label for="profile-email">Adresse e-mail</label>
+              <input class="input" id="profile-email" name="email" type="email" maxlength="150" required>
+            </div>
+            <div class="field">
+              <label for="profile-address">Adresse de livraison</label>
+              <textarea class="input" id="profile-address" name="address" rows="3" maxlength="255"></textarea>
+            </div>
+            <button class="btn btn-primary" type="submit">Enregistrer</button>
+          </form>
+
+          <form class="panel" id="password-form" novalidate>
+            <h3 class="font-semibold text-slate-900">Mot de passe</h3>
+            <div class="mt-3 field">
+              <label for="current-password">Mot de passe actuel</label>
+              <input class="input" id="current-password" name="current_password" type="password" required autocomplete="current-password">
+            </div>
+            <div class="field">
+              <label for="new-password">Nouveau mot de passe</label>
+              <input class="input" id="new-password" name="new_password" type="password" required autocomplete="new-password">
+              <small>Entre 8 et 72 caractères.</small>
+            </div>
+            <div class="field">
+              <label for="confirmation">Confirmation</label>
+              <input class="input" id="confirmation" name="confirmation" type="password" required autocomplete="new-password">
+            </div>
+            <button class="btn btn-primary" type="submit">Changer le mot de passe</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="mt-10">
+        <h2 class="text-xl font-bold text-slate-900">Ma liste d'envies</h2>
+        <!-- Grille de cartes produit, remplie par js/account.js. -->
+        <div class="grid grid-cols-2 gap-4 md:grid-cols-3 mt-4" id="wishlist-grid" hidden></div>
+        <p class="py-3 text-slate-500" id="wishlist-empty">
+          Votre liste d'envies est vide. <a class="text-brand hover:underline" href="products.html">Découvrir le catalogue</a>.
+        </p>
+      </section>
+
+      <section class="mt-10">
+        <h2 class="text-xl font-bold text-slate-900">Mes commandes</h2>
+        <!-- Rempli par js/account.js avec le résultat de GET api/orders.php -->
+        <ul class="mt-4 space-y-4" id="order-history"></ul>
+      </section>
     </div>
   </main>
 
@@ -60,9 +116,6 @@
   <script src="js/api.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/auth.js"></script>
-  <script>
-    initAuth();
-    initAccountPage();
-  </script>
+  <script src="js/account.js"></script>
 </body>
 </html>

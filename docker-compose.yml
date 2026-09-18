@@ -1,0 +1,74 @@
+# =============================================================
+#  Octet shop — local stack with Docker
+#
+#  Two containers:
+#    db   MySQL (MariaDB) with the schema imported automatically
+#         on the first start (docker-entrypoint-initdb.d)
+#    web  PHP + Apache, the site itself
+#
+#  Start:   docker compose up --build
+#  Site:    http://127.0.0.1:8080
+#  Stop:    docker compose down        (containers off, data kept)
+#  Reset:   docker compose down -v     (containers off, data erased,
+#                                       schema re-imported on next start)
+# =============================================================
+
+services:
+  db:
+    # MariaDB is a drop-in MySQL server; the official image runs every
+    # *.sql file mounted in /docker-entrypoint-initdb.d/ on first start.
+    image: mariadb:11
+    container_name: octet-db
+    restart: unless-stopped
+    environment:
+      # Root password used by the init scripts only; the site never uses it
+      # (see the "shop" account created by database/schema.sql).
+      MARIADB_ROOT_PASSWORD: root_local
+    volumes:
+      # 10- and 20- prefixes force the alphabetical order: the schema (which
+      # creates the tables and the local "shop" accounts) runs before the
+      # Docker-only extra account.
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/10-schema.sql:ro
+      - ./database/init-docker.sql:/docker-entrypoint-initdb.d/20-init-docker.sql:ro
+      # Named volume: the data survives "docker compose down".
+      - db-data:/var/lib/mysql
+    ports:
+      # 3307 on the host instead of 3306, so a MySQL already running locally
+      # is not disturbed.
+      - "3307:3306"
+    healthcheck:
+      # The entrypoint script is the "real" readiness signal: SELECT 1 only
+      # proves the server responds, not that the init scripts are finished.
+      test: ["CMD-SHELL", "mariadb -uroot -proot_local -e 'SELECT 1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  web:
+    build: .
+    container_name: octet-web
+    restart: unless-stopped
+    # The web container must not start before the database finished its
+    # first-time import, otherwise the first API calls would fail.
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # These override the defaults in config/database.php. "db" is the host
+      # name of the MySQL container on the Docker network -- which is why
+      # database/init-docker.sql grants the shop account to any host.
+      DB_HOST: db
+      DB_NAME: shop
+      DB_USER: shop
+      DB_PASS: shop_local
+    ports:
+      # 8080 on the host instead of 80, so nothing conflicts with a web server
+      # already running locally.
+      - "8080:80"
+    # Development convenience: the code on the disk is live, no rebuild needed
+    # after every edit. Production builds the image alone (see the Dockerfile).
+    volumes:
+      - ./:/var/www/html
+
+volumes:
+  db-data:

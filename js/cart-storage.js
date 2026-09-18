@@ -1,136 +1,102 @@
 /**
- * Le panier, stocké dans localStorage.
+ * Le panier du compte connecté, stocké SUR LE SERVEUR.
  *
- * Ce fichier est chargé sur toutes les pages. Il ne contient que des fonctions :
- * rien ne s'exécute tant qu'une page ne les appelle pas.
+ * Depuis l'ajout du panier par compte, le panier ne vit plus dans le
+ * navigateur : il vit dans la table cart_items, lié au compte. Ce fichier
+ * est la passerelle entre les pages et l'API, et il conserve une COPIE du
+ * panier en mémoire (cartCache) pour que les pages puissent afficher le
+ * contenu sans faire un appel réseau à chaque rendu.
  *
- * Le panier est un TABLEAU d'objets, enregistré en JSON sous la clé CART_KEY :
+ * Structure d'une ligne :
  *
- *   [{ id: 3, name: "Étagère murale", price: 39.5,
- *      image_url: null, stock: 0, quantity: 2 }]
+ *   { id: 3, name: "Étagère murale", price: 39.5,
+ *     image_url: null, stock: 0, quantity: 2 }
  *
- * Point capital : ce tableau vit dans le navigateur, ce n'est donc PAS une
- * source de vérité. Le prix et le stock y sont recopiés pour l'affichage
- * seulement. Au moment de commander, la page de checkout n'envoie que
- * id + quantity, et PHP relit les vrais prix en base (voir js/checkout.js).
+ * price est le prix EFFECTIF (promotion comprise), calculé par le serveur.
+ * Point capital : le panier serveur est une source de vérité. Au moment de
+ * commander, PHP relit les prix en base et le panier dans cart_items : le
+ * navigateur ne fait que l'afficher.
+ *
+ * Ce fichier est chargé sur toutes les pages. Il ne contient que des
+ * fonctions : rien ne s'exécute tant qu'une page ne les appelle pas.
  */
 
-const CART_KEY = "shop_cart";
+// Copie locale du panier serveur. null = "pas encore chargé / pas connecté",
+// et getCart() renvoie alors un panier vide pour ne faire planter aucune page.
+let cartCache = null;
 
 /**
- * Lit le panier depuis localStorage.
- * Renvoie toujours un tableau, même si la valeur enregistrée est absente,
- * vide ou corrompue : aucune page ne doit planter pour un panier illisible.
+ * Recharge le panier depuis le serveur (GET api/cart.php).
+ * À appeler après une connexion : c'est le moment où le panier du compte
+ * doit apparaître.
  */
+async function loadCart() {
+  const data = await fetchJson("api/cart.php");
+  cartCache = data.items || [];
+  return cartCache;
+}
+
+/** Renvoie le contenu actuellement connu du panier (vide si non chargé). */
 function getCart() {
-  const raw = localStorage.getItem(CART_KEY);
-  if (raw === null) {
-    return [];
-  }
-
-  try {
-    const items = JSON.parse(raw);
-    if (!Array.isArray(items)) {
-      return [];
-    }
-    // Filtrage minimal : une entrée sans id ou sans quantité positive est
-    // ignorée plutôt que de produire des lignes vides dans le tableau.
-    return items.filter((line) => line !== null && line.id != null && line.quantity > 0);
-  } catch (error) {
-    // JSON.parse échoue si la valeur a été modifiée à la main dans les outils
-    // du navigateur. On repart d'un panier vide au lieu de bloquer le site.
-    console.warn("Panier illisible, réinitialisation.", error);
-    localStorage.removeItem(CART_KEY);
-    return [];
-  }
-}
-
-/** Écrit le panier. localStorage ne sait stocker que des chaînes : d'où JSON.stringify. */
-function saveCart(items) {
-  localStorage.setItem(CART_KEY, JSON.stringify(items));
+  return cartCache === null ? [] : cartCache;
 }
 
 /**
- * Ajoute un produit au panier, ou augmente sa quantité s'il y est déjà.
+ * Réinitialise la copie locale. À appeler quand personne n'est connecté ou
+ * juste après une commande : l'écran ne doit plus montrer un panier fantôme.
+ */
+function resetCartCache() {
+  cartCache = null;
+}
+
+/**
+ * Ajoute un produit au panier (action "add" : la quantité s'additionne).
+ * Le serveur vérifie le stock : il peut refuser l'ajout.
  *
- * @returns {number} La quantité finale dans le panier, ou 0 si rien n'a été ajouté.
+ * @returns {number} La quantité totale de ce produit dans le panier, ou 0.
  */
-function addToCart(product, quantity) {
-  const cart = getCart();
-  const wanted = Math.max(1, Math.floor(Number(quantity) || 1));
-  const line = cart.find((item) => item.id === product.id);
-  const alreadyInCart = line ? line.quantity : 0;
-  const stock = Number(product.stock);
-
-  // On ne dépasse jamais le stock connu à cet instant : c'est une limite
-  // d'interface, pas une sécurité. Le contrôle réel a lieu en PHP, car le
-  // stock a très bien pu baisser depuis l'affichage de la page.
-  const finalQuantity = Math.min(alreadyInCart + wanted, stock);
-  if (finalQuantity < 1) {
-    return 0;
-  }
-
-  // Le prix retenu est celui que le visiteur a vu sur la page : le prix de
-  // promotion s'il existe, le prix catalogue sinon. L'API envoie les deux
-  // champs, c'est donc ici qu'on choisit lequel sert à l'affichage. (Le
-  // montant réellement facturé, lui, sera relu en base par PHP.)
-  const unitPrice = product.discount_price ? Number(product.discount_price) : Number(product.price);
-
-  if (line) {
-    line.quantity = finalQuantity;
-    // Le nom, le prix et le stock sont rafraîchis : le panier reste cohérent
-    // si le produit a changé depuis le dernier ajout.
-    line.name = product.name;
-    line.price = unitPrice;
-    line.image_url = product.image_url;
-    line.stock = stock;
-  } else {
-    cart.push({
-      id: product.id,
-      name: product.name,
-      price: unitPrice,
-      image_url: product.image_url,
-      stock: stock,
-      quantity: finalQuantity,
-    });
-  }
-
-  saveCart(cart);
-  return finalQuantity;
+async function addToCart(productId, quantity) {
+  const data = await fetchJson("api/cart.php", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ product_id: productId, quantity: quantity, action: "add" }),
+  });
+  cartCache = data.items || [];
+  return data.count || 0;
 }
 
 /**
- * Modifie la quantité d'une ligne existante.
- * Une valeur invalide (0, vide, texte) retombe sur 1 : vider une ligne est une
- * action explicite, pas un effet de bord d'une saisie ratée.
+ * Fixe la quantité d'une ligne (action "set") : c'est ce qu'utilise le champ
+ * de quantité de la page panier. Une valeur invalide est refusée par le
+ * serveur (400), le serveur ne descend jamais sous 1.
  */
-function updateQuantity(productId, quantity) {
-  const cart = getCart();
-  const line = cart.find((item) => item.id === productId);
-  if (!line) {
-    return false;
-  }
-
-  const value = Math.floor(Number(quantity));
-  if (!Number.isFinite(value) || value < 1) {
-    line.quantity = 1;
-  } else {
-    line.quantity = Math.min(value, line.stock);
-  }
-
-  saveCart(cart);
-  return true;
+async function updateQuantity(productId, quantity) {
+  const data = await fetchJson("api/cart.php", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ product_id: productId, quantity: quantity, action: "set" }),
+  });
+  cartCache = data.items || [];
 }
 
-/** Supprime une ligne du panier. */
-function removeFromCart(productId) {
-  const cart = getCart().filter((item) => item.id !== productId);
-  saveCart(cart);
+/** Supprime un produit du panier. */
+async function removeFromCart(productId) {
+  const data = await fetchJson("api/cart.php", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ product_id: productId }),
+  });
+  cartCache = data.items || [];
 }
 
-/** Vide le panier (après une commande réussie, ou via le bouton « Vider »). */
-function clearCart() {
-  localStorage.removeItem(CART_KEY);
+/** Vide le panier côté serveur. */
+async function clearCart() {
+  const data = await fetchJson("api/cart.php", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  cartCache = data.items || [];
 }
 
 /** Nombre total d'articles (quantités additionnées), pour le badge de l'en-tête. */
@@ -139,11 +105,9 @@ function getCartCount() {
 }
 
 /**
- * Montant du panier, calculé à partir des prix mémorisés localement.
- *
- * Ce total sert UNIQUEMENT à l'affichage. Il peut différer du montant réel si
- * un prix a changé en base depuis l'ajout au panier : le montant qui fait foi
- * est celui que PHP recalculera et renverra avec la commande.
+ * Montant du panier, calculé à partir des prix renvoyés par le serveur.
+ * Il sert UNIQUEMENT à l'affichage : le montant qui fait foi est celui que
+ * PHP recalcule au moment de la commande.
  */
 function getCartTotal() {
   return getCart().reduce((total, line) => total + line.price * line.quantity, 0);
@@ -158,6 +122,7 @@ function refreshCartBadge() {
 
   const count = getCartCount();
   badge.textContent = count;
-  // Un panier vide ne doit pas afficher une bulle « 0 ».
-  badge.hidden = count === 0;
+  // Un panier vide, ou un visiteur non connecté, ne doit pas afficher une
+  // bulle de compteur.
+  badge.hidden = cartCache === null || count === 0;
 }

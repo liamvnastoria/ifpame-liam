@@ -1,15 +1,18 @@
 <?php
 /**
  * GET  /api/orders.php   the order history of the logged-in account
- * POST /api/orders.php   create an order for the logged-in account
+ * POST /api/orders.php   place an order from the logged-in account's cart
  *
  * Two methods on the same URL on purpose: "the orders" is one resource. GET
  * reads it, POST adds to it. There is no endpoint to read someone else's
  * orders, because the account always comes from the session.
  *
- * Body of the POST (nothing else is accepted -- in particular, no price):
- *   { "address": "12 rue des Tilleuls, 5000 Namur",
- *     "items": [ { "product_id": 3, "quantity": 2 }, ... ] }
+ * Body of the POST (only the address; the articles are read from the account's
+ * server-side cart, NOT from the request -- the browser cannot invent a line):
+ *   { "address": "12 rue des Tilleuls, 5000 Namur" }
+ *
+ * Shipping: 4.95 € under 75 €, free from 75 €. Prices are VAT-inclusive, so
+ * the "dont TVA 21 %" amount is total * 21/121, computed by the frontend.
  */
 
 require_once __DIR__ . '/helpers.php';
@@ -33,11 +36,12 @@ json_error('Method not allowed. Use GET or POST.', 405);
 
 
 /**
- * Sends the order history of one account, newest first.
+ * Sends the order history of one account, newest first, with the shipping fee
+ * and the shipping address of each order.
  */
 function send_order_history(array $user): void
 {
-    $sql = 'SELECT o.id, o.total, o.created_at,
+    $sql = 'SELECT o.id, o.total, o.shipping, o.customer_address, o.created_at,
                    oi.product_id, oi.name, oi.unit_price, oi.quantity
             FROM orders AS o
             -- LEFT JOIN and not INNER JOIN: an order with no line must still
@@ -68,10 +72,12 @@ function send_order_history(array $user): void
 
         if (!isset($orders[$orderId])) {
             $orders[$orderId] = [
-                'id' => $orderId,
-                'total' => (float) $row['total'],
+                'id'         => $orderId,
+                'total'      => (float) $row['total'],
+                'shipping'   => (float) $row['shipping'],
+                'address'    => $row['customer_address'],
                 'created_at' => $row['created_at'],
-                'items' => [],
+                'items'      => [],
             ];
         }
 
@@ -79,9 +85,9 @@ function send_order_history(array $user): void
         if ($row['product_id'] !== null) {
             $orders[$orderId]['items'][] = [
                 'product_id' => (int) $row['product_id'],
-                'name' => $row['name'],
+                'name'       => $row['name'],
                 'unit_price' => (float) $row['unit_price'],
-                'quantity' => (int) $row['quantity'],
+                'quantity'   => (int) $row['quantity'],
             ];
         }
     }
@@ -93,7 +99,7 @@ function send_order_history(array $user): void
 
 
 /**
- * Creates an order for the logged-in account.
+ * Places an order from the account's server-side cart.
  */
 function create_order(array $user): void
 {
@@ -111,90 +117,44 @@ function create_order(array $user): void
     }
 
     // ------------------------------------------------------------------
-    // 2. The ordered lines: only ids and quantities, never any price
+    // 2. The ordered lines come from the CART, never from the request
     // ------------------------------------------------------------------
-    $items = is_array($body['items'] ?? null) ? $body['items'] : [];
-
-    if ($items === []) {
-        json_error('The order must contain at least one product.', 400);
-    }
-    if (count($items) > 20) {
-        json_error('An order cannot contain more than 20 different products.', 400);
-    }
-
-    $quantities = [];
-
-    foreach ($items as $item) {
-        if (!is_array($item)) {
-            json_error('Every order line must be an object.', 400);
-        }
-
-        $productId = (int) ($item['product_id'] ?? 0);
-        $quantity = (int) ($item['quantity'] ?? 0);
-
-        if ($productId <= 0) {
-            json_error('Every order line needs a valid product_id.', 400);
-        }
-        if ($quantity < 1 || $quantity > 99) {
-            json_error('A quantity must be between 1 and 99.', 400);
-        }
-        // The cart cannot send the same product twice (it is keyed by product
-        // id), so a duplicate means the request was written by hand. Refusing
-        // it is clearer than silently adding the two lines up.
-        if (array_key_exists($productId, $quantities)) {
-            json_error('The same product appears twice in the order.', 400);
-        }
-
-        $quantities[$productId] = $quantity;
-    }
-
-    // ------------------------------------------------------------------
-    // 3. Re-reading the products from the database
-    // ------------------------------------------------------------------
-    // The IN list is built from the NUMBER of ids, never from their values,
-    // and each id is still a bound parameter. Sorting the ids also makes the
-    // SQL text identical from one request to the next for the same products,
-    // which is what lets MySQL reuse its prepared statement.
-    $ids = array_keys($quantities);
-    sort($ids);
-
-    $placeholders = [];
-    $parameters = [];
-    foreach ($ids as $index => $productId) {
-        $placeholders[] = ':product' . $index;
-        $parameters['product' . $index] = $productId;
-    }
-
-    $sql = 'SELECT p.id, p.name, p.price, p.discount_price, p.stock
-            FROM products AS p
-            WHERE p.id IN (' . implode(', ', $placeholders) . ')';
+    // The cart is the account's own: the ids and quantities are read from
+    // cart_items, joined with the products. The browser sends nothing here,
+    // so it cannot add, remove or change a line or a price.
+    $sql = 'SELECT p.id, p.name, p.price, p.discount_price, p.stock, ci.quantity
+            FROM cart_items AS ci
+            INNER JOIN products AS p ON p.id = ci.product_id
+            WHERE ci.user_id = :user_id
+            ORDER BY p.name ASC';
 
     try {
         $statement = db()->prepare($sql);
-        $statement->execute($parameters);
-        $products = $statement->fetchAll();
+        $statement->execute(['user_id' => $user['id']]);
+        $cart = $statement->fetchAll();
     } catch (PDOException $e) {
         error_log('[API orders] ' . $e->getMessage());
-        json_error('Failed to check the products', 500);
+        json_error('Failed to read the cart', 500);
     }
 
-    // An id that matches no row means the catalogue changed or the request was
-    // invented. Either way, the order must not be created with a missing line.
-    if (count($products) !== count($ids)) {
-        json_error('One of the ordered products does not exist.', 404);
+    if ($cart === []) {
+        json_error('Your cart is empty: there is nothing to order.', 400);
+    }
+    if (count($cart) > 20) {
+        json_error('An order cannot contain more than 20 different products.', 400);
     }
 
     // ------------------------------------------------------------------
-    // 4. The prices, read from the DATABASE
+    // 3. The prices, read from the DATABASE, and the stock check
     // ------------------------------------------------------------------
     // This is the most important block of the project: the price used to
     // build the order comes from the database, never from the request. The
     // browser has no way of influencing the amount it will be charged.
     $lines = [];
-    $totalCents = 0;
+    $subtotalCents = 0;
 
-    foreach ($products as $product) {
-        $quantity = $quantities[(int) $product['id']];
+    foreach ($cart as $product) {
+        $quantity = (int) $product['quantity'];
         $unitPrice = $product['discount_price'] === null
             ? (float) $product['price']
             : (float) $product['discount_price'];
@@ -213,15 +173,23 @@ function create_order(array $user): void
         // 0.1 + 0.2 is not exactly 0.3, and a total that differs from the sum
         // of its lines by one cent is a bug nobody forgives on an invoice.
         $unitPriceCents = (int) round($unitPrice * 100);
-        $totalCents += $unitPriceCents * $quantity;
+        $subtotalCents += $unitPriceCents * $quantity;
 
         $lines[] = [
             'product_id' => (int) $product['id'],
-            'name' => $product['name'],
+            'name'       => $product['name'],
             'unit_price' => number_format($unitPriceCents / 100, 2, '.', ''),
-            'quantity' => $quantity,
+            'quantity'   => $quantity,
         ];
     }
+
+    // ------------------------------------------------------------------
+    // 4. Shipping fee, then the total
+    // ------------------------------------------------------------------
+    // Free shipping from 75.00 €, otherwise 4.95 €. Both are constants here so
+    // the rule has a single place to change.
+    $shippingCents = $subtotalCents >= 7500 ? 0 : 495;
+    $totalCents = $subtotalCents + $shippingCents;
 
     // ------------------------------------------------------------------
     // 5. Writing everything, or nothing at all
@@ -234,18 +202,19 @@ function create_order(array $user): void
         $pdo->beginTransaction();
 
         $insertOrder = $pdo->prepare(
-            'INSERT INTO orders (user_id, customer_name, customer_email, customer_address, total)
-             VALUES (:user_id, :name, :email, :address, :total)'
+            'INSERT INTO orders (user_id, customer_name, customer_email, customer_address, shipping, total)
+             VALUES (:user_id, :name, :email, :address, :shipping, :total)'
         );
         // The customer identity comes from the SESSION, not from the request
         // body: the browser cannot order in somebody else's name, even by
         // editing the JavaScript.
         $insertOrder->execute([
-            'user_id' => $user['id'],
-            'name' => $user['name'],
-            'email' => $user['email'],
-            'address' => $address,
-            'total' => number_format($totalCents / 100, 2, '.', ''),
+            'user_id'  => $user['id'],
+            'name'     => $user['name'],
+            'email'    => $user['email'],
+            'address'  => $address,
+            'shipping' => number_format($shippingCents / 100, 2, '.', ''),
+            'total'    => number_format($totalCents / 100, 2, '.', ''),
         ]);
 
         $orderId = (int) $pdo->lastInsertId();
@@ -268,11 +237,11 @@ function create_order(array $user): void
             // The name and the price are copied into the line: this is the
             // snapshot that keeps the invoice readable in five years.
             $insertLine->execute([
-                'order_id' => $orderId,
-                'product_id' => $line['product_id'],
-                'name' => $line['name'],
-                'unit_price' => $line['unit_price'],
-                'quantity' => $line['quantity'],
+                'order_id'    => $orderId,
+                'product_id'  => $line['product_id'],
+                'name'        => $line['name'],
+                'unit_price'  => $line['unit_price'],
+                'quantity'    => $line['quantity'],
             ]);
 
             // Stock is decremented in the same transaction. "AND stock >=
@@ -280,8 +249,8 @@ function create_order(array $user): void
             // check above and this line (two visitors ordering the last unit
             // at the same second), the UPDATE touches zero rows and we notice.
             $updateStock->execute([
-                'quantity' => $line['quantity'],
-                'product_id' => $line['product_id'],
+                'quantity'    => $line['quantity'],
+                'product_id'  => $line['product_id'],
                 'stock_needed' => $line['quantity'],
             ]);
 
@@ -291,6 +260,12 @@ function create_order(array $user): void
                 );
             }
         }
+
+        // The order is placed: the cart has served its purpose and is emptied
+        // here, in the same transaction. If anything above failed, the ROLLBACK
+        // keeps the cart intact so the visitor can try again.
+        $clearCart = $pdo->prepare('DELETE FROM cart_items WHERE user_id = :user_id');
+        $clearCart->execute(['user_id' => $user['id']]);
 
         // COMMIT. Everything written since BEGIN becomes permanent.
         $pdo->commit();
@@ -327,9 +302,12 @@ function create_order(array $user): void
     }
 
     // 201 Created: a new resource now exists, and its id is returned so the
-    // confirmation page can display it.
+    // confirmation page can display it. The amounts PHP computed are returned
+    // so the frontend can show a breakdown without recomputing anything.
     json_success([
         'order_id' => $orderId,
-        'total' => $totalCents / 100,
+        'subtotal' => $subtotalCents / 100,
+        'shipping' => $shippingCents / 100,
+        'total'    => $totalCents / 100,
     ], 201);
 }

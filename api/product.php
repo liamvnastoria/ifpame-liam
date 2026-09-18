@@ -24,7 +24,9 @@ if ($id <= 0) {
 // Here "description" is selected, unlike in products.php: the detail page is
 // the only place that needs the long text.
 $sql = 'SELECT p.id, p.name, p.description, p.price, p.discount_price, p.stock, p.image_url,
-               c.id AS category_id, c.name AS category_name
+               c.id AS category_id, c.name AS category_name,
+               (SELECT ROUND(AVG(r.rating), 1) FROM reviews AS r WHERE r.product_id = p.id) AS avg_rating,
+               (SELECT COUNT(*) FROM reviews AS r WHERE r.product_id = p.id) AS review_count
         FROM products AS p
         INNER JOIN categories AS c ON c.id = p.category_id
         WHERE p.id = :id';
@@ -46,4 +48,8 @@ if ($product === false) {
     json_error('Product not found', 404);
 }
 
-json_success(cast_product_types($product));
+$product = cast_product_types($product);
+$product['avg_rating']   = $product['avg_rating'] === null ? null : (float) $product['avg_rating'];
+$product['review_count'] = (int) $product['review_count'];
+
+json_success($product);

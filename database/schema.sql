@@ -22,6 +22,11 @@ SET NAMES utf8mb4;
 -- first: MySQL refuses to drop a table that another table points to.
 DROP TABLE IF EXISTS order_items;
 DROP TABLE IF EXISTS orders;
+-- reviews, wishlist and cart_items point to users and products, so they must
+-- go before those two.
+DROP TABLE IF EXISTS reviews;
+DROP TABLE IF EXISTS wishlist;
+DROP TABLE IF EXISTS cart_items;
 -- users must disappear after orders: orders.user_id points to it, and MySQL
 -- refuses to drop a table that another one still references.
 DROP TABLE IF EXISTS users;
@@ -110,6 +115,11 @@ CREATE TABLE users (
   -- the length of password_hash() output depends on the algorithm (60 for
   -- bcrypt today, more if PHP changes its default one day).
   password_hash VARCHAR(255) NOT NULL,
+  -- The visitor's usual shipping address, editable from the account page and
+  -- used to PRE-FILL the checkout form. It is only a convenience: the checkout
+  -- still asks for an address and stores it on the order, because an invoice
+  -- must not change when this profile value changes later.
+  address       VARCHAR(255) NULL,
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   -- The database refuses two accounts with the same e-mail. PHP checks the
@@ -117,6 +127,100 @@ CREATE TABLE users (
   -- index is the real guarantee: two registrations at the same second cannot
   -- both succeed, whatever PHP does.
   UNIQUE KEY uq_users_email (email)
+) ENGINE=InnoDB;
+
+
+-- =============================================================
+--  cart_items
+--  The per-account shopping cart, kept on the SERVER.
+--
+--  This is the heart of the "cart by account" feature: the cart no longer
+--  lives in the visitor's browser (localStorage), it lives here, linked to the
+--  account that owns it. A cart is therefore the same on every device and
+--  survives the browser being closed, which localStorage never did.
+--
+--  One row per product in the cart. The UNIQUE pair (user_id, product_id)
+--  guarantees a product appears at most once per account: adding it again only
+--  raises the quantity. No price is stored here, on purpose: the displayed
+--  price is read back from products at checkout, exactly like for an order.
+-- =============================================================
+CREATE TABLE cart_items (
+  id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id    INT UNSIGNED NOT NULL,
+  product_id INT UNSIGNED NOT NULL,
+  quantity   INT UNSIGNED NOT NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_cart_user_product (user_id, product_id),
+  KEY idx_cart_user (user_id),
+  KEY idx_cart_product (product_id),
+  CONSTRAINT fk_cart_user
+    FOREIGN KEY (user_id) REFERENCES users (id)
+    -- CASCADE: a cart has no meaning without its owner, so deleting the
+    -- account deletes its cart instead of leaving it orphaned.
+    ON DELETE CASCADE,
+  CONSTRAINT fk_cart_product
+    FOREIGN KEY (product_id) REFERENCES products (id)
+    ON DELETE CASCADE,
+  CONSTRAINT chk_cart_quantity CHECK (quantity > 0)
+) ENGINE=InnoDB;
+
+
+-- =============================================================
+--  wishlist
+--  "Save for later": products an account wants to find again.
+--
+--  A wishlist is just a set of products, so the UNIQUE pair (user_id,
+--  product_id) means "this product is either in the list or it is not" -- there
+--  is no quantity to store.
+-- =============================================================
+CREATE TABLE wishlist (
+  id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id    INT UNSIGNED NOT NULL,
+  product_id INT UNSIGNED NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_wishlist_user_product (user_id, product_id),
+  KEY idx_wishlist_user (user_id),
+  KEY idx_wishlist_product (product_id),
+  CONSTRAINT fk_wishlist_user
+    FOREIGN KEY (user_id) REFERENCES users (id)
+    ON DELETE CASCADE,
+  CONSTRAINT fk_wishlist_product
+    FOREIGN KEY (product_id) REFERENCES products (id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+
+-- =============================================================
+--  reviews
+--  One customer rating + comment per product.
+--
+--  rating is a whole number from 1 to 5 (the CHECK enforces it). The UNIQUE
+--  pair (product_id, user_id) means a customer can give their opinion on a
+--  product only once; posting again would be a duplicate, so the API rejects
+--  it. author_name is copied from the account at the moment of writing, so a
+--  renamed or deleted account does not corrupt the review history.
+-- =============================================================
+CREATE TABLE reviews (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  product_id  INT UNSIGNED NOT NULL,
+  user_id     INT UNSIGNED NULL,
+  author_name VARCHAR(100) NOT NULL,
+  rating      TINYINT UNSIGNED NOT NULL,
+  comment     TEXT NULL,
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_reviews_product_user (product_id, user_id),
+  KEY idx_reviews_product (product_id),
+  KEY idx_reviews_user (user_id),
+  CONSTRAINT fk_reviews_product
+    FOREIGN KEY (product_id) REFERENCES products (id)
+    ON DELETE CASCADE,
+  CONSTRAINT fk_reviews_user
+    FOREIGN KEY (user_id) REFERENCES users (id)
+    ON DELETE SET NULL,
+  CONSTRAINT chk_reviews_rating CHECK (rating BETWEEN 1 AND 5)
 ) ENGINE=InnoDB;
 
 
@@ -144,6 +248,10 @@ CREATE TABLE orders (
   customer_name    VARCHAR(100) NOT NULL,
   customer_email   VARCHAR(150) NOT NULL,
   customer_address VARCHAR(255) NOT NULL,
+  -- Cost of shipping, snapshotted like the price of each line: an old order
+  -- must keep showing the delivery fee the customer actually paid, even if
+  -- the shop changes its shipping rules tomorrow. 0.00 means "free shipping".
+  shipping         DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   -- Stored as a snapshot of what the customer was shown when confirming.
   -- It is always computed by PHP from the prices read back from the
   -- database: the browser is never trusted for an amount.
@@ -384,6 +492,17 @@ INSERT INTO order_items (order_id, product_id, name, unit_price, quantity) VALUE
 
 
 -- =============================================================
+--  Demo data - a few product reviews
+--  author_name copies the account name, exactly as POST /api/reviews.php does.
+-- =============================================================
+INSERT INTO reviews (product_id, user_id, author_name, rating, comment) VALUES
+  (1, 1, 'Marie Dupont', 5, 'Léger, silencieux et rapide. Parfait pour travailler en déplacement.'),
+  (1, 2, 'Karim Benali', 4, 'Très bon ultrabook, seule l''autonomie déçoit un peu en 3D.'),
+  (20, 1, 'Marie Dupont', 5, 'Touches agréables, finition soignée.'),
+  (24, 2, 'Karim Benali', 4, 'Bonne prise en main, la molette est un peu ferme au début.');
+
+
+-- =============================================================
 --  The MySQL account the application connects with
 -- =============================================================
 -- WHY NOT root?
@@ -397,11 +516,12 @@ INSERT INTO order_items (order_id, product_id, name, unit_price, quantity) VALUE
 --     the password is correct. That message sends you looking for a password
 --     problem when the real problem is the account itself.
 --
--- WHAT THIS ACCOUNT MAY DO: read the catalogue, create an order, add its lines
---   and decrement a stock. That is everything the API does, and nothing more.
---   It cannot CREATE or DROP a table, which is exactly why this file is
---   imported by an administrator (sudo mysql < database/schema.sql) and never
---   by the website.
+-- WHAT THIS ACCOUNT MAY DO: read the catalogue, manage a cart and a wishlist,
+-- create an order, add its lines and decrement a stock. DELETE is needed
+-- because removing a line from the cart or the wishlist deletes a row. It
+-- cannot CREATE or DROP a table, which is exactly why this file is
+-- imported by an administrator (sudo mysql < database/schema.sql) and never
+-- by the website.
 --
 -- WARNING: a password written in a file is acceptable for a local school
 --   project. On a real server it comes from an environment variable and is
@@ -417,8 +537,8 @@ INSERT INTO order_items (order_id, product_id, name, unit_price, quantity) VALUE
 CREATE USER IF NOT EXISTS 'shop'@'localhost' IDENTIFIED BY 'shop_local';
 CREATE USER IF NOT EXISTS 'shop'@'127.0.0.1' IDENTIFIED BY 'shop_local';
 
-GRANT SELECT, INSERT, UPDATE ON shop.* TO 'shop'@'localhost';
-GRANT SELECT, INSERT, UPDATE ON shop.* TO 'shop'@'127.0.0.1';
+GRANT SELECT, INSERT, UPDATE, DELETE ON shop.* TO 'shop'@'localhost';
+GRANT SELECT, INSERT, UPDATE, DELETE ON shop.* TO 'shop'@'127.0.0.1';
 -- FLUSH PRIVILEGES reloads the rights tables. Not strictly required after a
 -- GRANT, but harmless and it makes sure the new account works immediately.
 FLUSH PRIVILEGES;
