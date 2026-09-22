@@ -93,10 +93,15 @@ jobs:
           # 1) La page d'accueil est servie par le conteneur web.
           curl -fs -o /dev/null http://localhost:8080/index.html
 
-          # 2) Un endpoint qui lit en base et répond {"success": true, ...} :
-          #    il prouve PHP, pdo_mysql et l'import du schéma en un aller-retour.
-          curl -fs http://localhost:8080/api/categories.php \
-            | grep -q '"success": true'
+          # 2) Un endpoint qui lit en base et répond {"success":true,...} : il
+          #    prouve PHP, pdo_mysql et l'import du schéma en un aller-retour.
+          #    json_encode() produit du JSON compact (sans espace après les
+          #    deux-points), d'où le motif "success":true.
+          #    La réponse est écrite dans un fichier puis vérifiée avec grep :
+          #    sans pipe, car avec "-o pipefail" un grep -q qui ferme le tuyau
+          #    ferait échouer curl (SIGPIPE) même si la réponse était bonne.
+          curl -fs http://localhost:8080/api/categories.php -o /tmp/categories.json
+          grep -q '"success":true' /tmp/categories.json
 
       # On ne publie que la vitrine : les fichiers HTML, le CSS et le JS.
       # Tout le reste (API PHP, base, sources Tailwind, node_modules) reste
