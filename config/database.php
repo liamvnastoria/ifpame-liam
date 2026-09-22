@@ -22,6 +22,7 @@
 // client use a Unix socket rather than TCP, which fails on some Windows
 // setups. 127.0.0.1 forces a plain TCP connection.
 define('DB_HOST', getenv('DB_HOST') ?: '127.0.0.1');
+define('DB_PORT', getenv('DB_PORT') ?: '3306');
 define('DB_NAME', getenv('DB_NAME') ?: 'shop');
 // The application does NOT connect as root. This account is created at the end
 // of database/schema.sql: it may only read the catalogue, manage a cart and a
@@ -45,7 +46,10 @@ function getDatabase(): PDO
     static $pdo = null;
 
     if ($pdo === null) {
-        $dsn = 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=' . DB_CHARSET;
+        // DB_PORT existe pour les bases cloud qui n'écoutent pas sur le port
+        // MySQL par défaut (3306), par ex. Railway ou Aiven. En local, le
+        // conteneur db de docker-compose.yml est exposé sur 3307 côté hôte.
+        $dsn = 'mysql:host=' . DB_HOST . ';port=' . DB_PORT . ';dbname=' . DB_NAME . ';charset=' . DB_CHARSET;
 
         $pdo = new PDO($dsn, DB_USER, DB_PASS, [
             // Exceptions instead of silent false returns: a failing query must

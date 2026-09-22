@@ -1,0 +1,34 @@
+# =============================================================
+#  Octet shop — image Vercel (container image function)
+#
+#  Vercel ne lit PAS docker-compose.yml : il n'existe aucune cible
+#  de déploiement Compose. Vercel déploie des images OCI uniques,
+#  détectées ici grâce au nom "Dockerfile.vercel" placé à la racine.
+#
+#  Ce fichier est la TRADUCTION du service "web" de docker-compose.yml :
+#  même image PHP + Apache, même extension pdo_mysql. Le conteneur sert
+#  à la fois le frontend statique ET l'API, exactement comme en local
+#  (un seul hôte ⇒ les URLs relatives de js/api.js restent valables).
+#
+#  Le service "db" de docker-compose.yml n'a PAS d'équivalent sur Vercel :
+#  les conteneurs y tournent sur un système de fichiers éphémère, sans
+#  volume persistant. La base MySQL vit donc sur un service externe
+#  (Aiven, Railway, Clever Cloud…) et ses coordonnées sont injectées par
+#  les variables d'environnement du projet Vercel — config/database.php les
+#  lit déjà via getenv(). Aucun code PHP à modifier.
+#
+#  Le conteneur écoute sur le port 80, qui est le port par défaut attendu
+#  par Vercel ($PORT = 80). php:8.4-apache est configuré ainsi par défaut.
+# =============================================================
+
+FROM php:8.4-apache
+
+# Même commande que le Dockerfile local : pdo_mysql (le driver utilisé par
+# chaque endpoint) + le module de réécriture Apache.
+RUN docker-php-ext-install pdo_mysql && a2enmod rewrite
+
+# Tout le projet devient la racine du document Apache, comme dans le
+# Dockerfile. Pas de bind-mount ici : en production l'image est figée.
+COPY . /var/www/html/
+
+EXPOSE 80

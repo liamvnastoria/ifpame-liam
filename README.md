@@ -50,33 +50,40 @@ La configuration se lit dans l'environnement : `config/database.php` utilise
 `getenv()` avec un repli local, donc le même code tourne sur XAMPP/MAMP, en
 Docker, et en production sans modification.
 
-## GitHub Pages : vitrine statique
+## GitHub Pages : vitrine statique (abandonné)
 
-Le dossier `.github/workflows/pages.yml` publie une **vitrine** du site sur
-GitHub Pages à chaque push sur `main`. GitHub Pages ne pouvant exécuter ni
-PHP ni MySQL, cette version ne montre que le design : les données dynamiques
-(comptes, panier, commandes) y afficheront des erreurs, car elles viennent de
-l'API PHP.
+Anciennement, `.github/workflows/pages.yml` publiait une **vitrine** statique
+sur GitHub Pages à chaque push sur `main`. GitHub Pages ne pouvant exécuter ni
+PHP ni MySQL, cette version ne montrait que le design, sans données dynamiques.
+Ce workflow a été retiré : le déploiement passe désormais par Vercel (ci-dessous),
+où le site complet — API comprise — est fonctionnel.
 
-Avant de publier, le workflow démarre le vrai site via `docker-compose.yml`
-(MySQL + PHP/Apache) et vérifie que la pile répond (page d'accueil + endpoint
-API qui lit en base) : un push qui casse la pile Docker ne publie rien. On ne
-publie ensuite que les fichiers statiques (`*.html`, `css/`, `js/`).
+## Déploiement sur Vercel (site complet)
 
-Activation (une seule fois) : **Settings → Pages → Build and deployment →
-Source : GitHub Actions**. Le site apparaît alors sur
-`https://<utilisateur>.github.io/<repo>/`.
+Vercel ne lit pas `docker-compose.yml` (Vercel n'a pas de cible de déploiement
+Compose ; il déploie des images Docker uniques, traduites de la main de
+l'homme). Le plan ci-dessous traduit chaque morceau de la pile :
 
-## Déploiement continu du site fonctionnel (push → production)
-
-Le site (PHP + MySQL) s'exécute dans Docker ; il faut donc une plateforme qui
-lance des conteneurs (GitHub Pages et Vercel ne le peuvent pas).
-
-1. Connecte le dépôt GitHub à une plateforme Docker (Railway, Render, Koyeb…
-   ou un VPS avec Dokploy).
-2. Provisionne une base MySQL (ou le service MySQL de la plateforme) et
-   importe `database/schema.sql` + `database/init-docker.sql`.
-3. Renseigne les variables d'environnement du service web : `DB_HOST`,
-   `DB_NAME`, `DB_USER`, `DB_PASS` (par exemple `DB_HOST=db` avec
-   docker-compose, ou l'hôte fourni par la plateforme).
-4. Chaque push sur la branche connectée redéploie automatiquement.
+1. **Le service `web` → image Vercel.** `Dockerfile.vercel` à la racine est
+   détecté automatiquement : c'est la traduction du service `web` de
+   `docker-compose.yml` (même image PHP + Apache + `pdo_mysql`). Le conteneur
+   sert le frontend ET l'API, comme en local, donc les URLs relatives de
+   `js/api.js` restent inchangées. `docker-compose.yml` continue de servir au
+   développement local (`docker compose up --build`).
+2. **Le service `db` → base MySQL externe.** Vercel n'héberge ni MySQL ni
+   MariaDB (son système de fichiers est éphémère, sans volume persistant).
+   Provisionne une base MySQL/MariaDB chez un fournisseur (Aiven, Railway,
+   Clever Cloud…) et importe une seule fois `database/schema.sql`.
+3. **Variables d'environnement du projet Vercel** (secrets) :
+   `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS` —
+   `config/database.php` les lit déjà via `getenv()`. Quel que soit le
+   fournisseur, autorise les connexions depuis Vercel (accès public, IP
+   autorisées…).
+4. **Limite à connaître : les sessions.** Elles sont stockées en fichiers par
+   PHP, or sur Vercel chaque instance a un stockage éphémère et peut redémarrer
+   à zéro pendant l'inactivité : un visiteur peut perdre sa connexion. Acceptable
+   pour une démo ; pour un vrai site, déplacer les sessions vers Redis (Vercel
+   KV) et les gérer via un cookie persistant.
+5. Chaque push sur la branche connectée redéploie : Vercel reconstruit l'image
+   du `Dockerfile.vercel` et republie. Le site (frontend + API + base) est alors
+   fonctionnel sur `https://<projet>.vercel.app`.
