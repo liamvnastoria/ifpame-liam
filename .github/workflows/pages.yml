@@ -1,12 +1,21 @@
 # =============================================================
-#  GitHub Pages — vitrine statique
+#  GitHub Pages — vitrine statique, validée par Docker Compose
 #
-#  GitHub Pages ne peut servir QUE des fichiers statiques : il n'exécute ni
-#  PHP ni MySQL. Ce workflow publie donc les pages HTML/CSS/JS telles quelles :
-#  le design est visible en production, mais les données dynamiques (comptes,
-#  panier, commandes) s'appuient sur l'API PHP et afficheront des erreurs.
+#  Rappel : GitHub Pages ne peut servir QUE des fichiers statiques,
+#  il n'exécute ni PHP ni MySQL. Ce workflow publie donc toujours les
+#  pages HTML/CSS/JS : les données dynamiques (comptes, panier,
+#  commandes) s'appuient sur l'API PHP et afficheront des erreurs.
 #
-#  Le site réellement fonctionnel vit dans Docker (voir docker-compose.yml).
+#  La différence avec une simple copie des fichiers : avant de publier,
+#  le workflow démarré le VRAI site via docker-compose.yml — le conteneur
+#  MySQL (db) et le conteneur PHP/Apache (web) — et vérifie qu'il répond
+#  (page d'accueil + endpoint API qui lit en base). La publication sort
+#  donc du même fichier que celui utilisé en local : ce qui casse la pile
+#  Docker ne part jamais en production.
+#
+#  Le site réellement fonctionnel (PHP + MySQL) vit dans Docker, sur une
+#  plateforme qui lance des conteneurs (voir README.md → "Déploiement
+#  continu du site fonctionnel").
 #
 #  Activation (une fois, dans le repo) :
 #    Settings → Pages → Build and deployment → Source : "GitHub Actions".
@@ -14,7 +23,7 @@
 #  https://<utilisateur>.github.io/<repo>/.
 # =============================================================
 
-name: Pages — vitrine statique
+name: Pages — vitrine statique (vérifiée via Docker Compose)
 
 on:
   push:
@@ -41,8 +50,9 @@ jobs:
       - uses: actions/checkout@v4
 
       # Le CSS est un fichier Tailwind compilé : il est régénéré ici à partir
-      # de src/input.css, pour que la vitrine reflète toujours les dernières
-      # classes. Le site livré ne contient donc QUE du statique.
+      # de src/input.css. Cette étape reste hors Docker car l'image web
+      # (php:8.4-apache) n'emporte pas Node ; c'est le seul outil host que le
+      # projet utilise pour produire un fichier de la vitrine.
       - name: Set up Node (build CSS)
         uses: actions/setup-node@v4
         with:
@@ -54,6 +64,39 @@ jobs:
 
       - name: Build CSS
         run: npm run css
+
+      # La mise en route passe par docker-compose.yml — PAS par une recopie
+      # des commandes du README. C'est exactement le même fichier qu'en local :
+      # mêmes images, mêmes variables d'environnement, mêmes volumes. Le
+      # "depends_on: db (service_healthy)" de docker-compose.yml fait attendre
+      # le conteneur web que la base ait fini son import initial.
+      # ubuntu-latest embarque Docker + Docker Compose v2.
+      - name: Build and start the Docker stack (docker-compose.yml)
+        run: docker compose up -d --build
+
+      # Les volumes de docker-compose.yml montent ./ dans /var/www/html : le
+      # conteneur web sert donc directement le CSS fraîchement compilé.
+      # Ce test lit le site À travers la pile complète : un vocabulaire
+      # Apache ne suffit pas, l'API doit prouver que PHP + pdo_mysql + le
+      # schéma importé fonctionnent ensemble.
+      - name: Smoke test — la pile Docker répond (page + API + base)
+        run: |
+          # Apache peut mettre un instant à répondre après le démarrage du
+          # conteneur : on relit jusqu'à 30×2 s avant de conclure.
+          for i in $(seq 1 30); do
+            if curl -fs -o /dev/null http://localhost:8080/index.html; then
+              break
+            fi
+            sleep 2
+          done
+
+          # 1) La page d'accueil est servie par le conteneur web.
+          curl -fs -o /dev/null http://localhost:8080/index.html
+
+          # 2) Un endpoint qui lit en base et répond {"success": true, ...} :
+          #    il prouve PHP, pdo_mysql et l'import du schéma en un aller-retour.
+          curl -fs http://localhost:8080/api/categories.php \
+            | grep -q '"success": true'
 
       # On ne publie que la vitrine : les fichiers HTML, le CSS et le JS.
       # Tout le reste (API PHP, base, sources Tailwind, node_modules) reste

@@ -58,6 +58,11 @@ PHP ni MySQL, cette version ne montre que le design : les données dynamiques
 (comptes, panier, commandes) y afficheront des erreurs, car elles viennent de
 l'API PHP.
 
+Avant de publier, le workflow démarre le vrai site via `docker-compose.yml`
+(MySQL + PHP/Apache) et vérifie que la pile répond (page d'accueil + endpoint
+API qui lit en base) : un push qui casse la pile Docker ne publie rien. On ne
+publie ensuite que les fichiers statiques (`*.html`, `css/`, `js/`).
+
 Activation (une seule fois) : **Settings → Pages → Build and deployment →
 Source : GitHub Actions**. Le site apparaît alors sur
 `https://<utilisateur>.github.io/<repo>/`.
